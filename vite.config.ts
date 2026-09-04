@@ -10,10 +10,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: '随手记',
-        short_name: '随手记',
-        description: '手机优先的个人记账工具',
-        theme_color: '#176b49',
+        name: 'ClearDues',
+        short_name: 'ClearDues',
+        description: 'ClearDues 手机欠款与还款账本',
+        theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',
