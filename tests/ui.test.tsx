@@ -1,8 +1,11 @@
 import React from 'react'
+import { readFileSync } from 'node:fs'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Debt, Repayment } from '../src/types'
+
+const stylesText = readFileSync('src/styles.css', 'utf8')
 
 const mocks = vi.hoisted(() => ({
   ledger: { debts: [] as Debt[], repayments: [] as Repayment[] },
@@ -33,6 +36,9 @@ import App, { RepaymentChoiceModal } from '../src/App'
 const currentDate = new Date().toISOString().slice(0, 10)
 const debt = (id: string, overrides: Partial<Debt> = {}): Debt => ({ id, userId: 'demo', person: '林晓', direction: 'owe', initialAmountCents: 10000, occurredDate: currentDate, dueDate: null, notes: '', deletedAt: null, updatedAt: `${currentDate}T00:00:00.000Z`, ...overrides })
 const repayment = (id: string, overrides: Partial<Repayment> = {}): Repayment => ({ id, userId: 'demo', debtId: 'd1', amountCents: 2500, date: currentDate, notes: '', deletedAt: null, updatedAt: `${currentDate}T00:00:00.000Z`, ...overrides })
+const monthStart = `${currentDate.slice(0, 7)}-01`
+const monthSecondDay = `${currentDate.slice(0, 7)}-02`
+const shortDate = (value: string) => { const [, month, day] = value.split('-'); return `${Number(month)}月${Number(day)}日` }
 
 function renderApp(debts: Debt[], repayments: Repayment[] = []) {
   mocks.ledger.debts = debts
@@ -92,6 +98,44 @@ describe('ClearDues mobile interactions', () => {
     await user.click(screen.getByRole('button', { name: '保存记录' }))
 
     expect(mocks.saveDebtOffline).toHaveBeenCalledWith(expect.objectContaining({ id: 'd1', initialAmountCents: 12000 }))
+  })
+
+  it('opens the selected second debt row, keeps its editor actions, and can save or delete it', async () => {
+    const { user } = renderApp([
+      debt('d1', { occurredDate: monthSecondDay, notes: '第一笔', initialAmountCents: 10000 }),
+      debt('d2', { occurredDate: monthStart, notes: '第二笔', initialAmountCents: 20000 }),
+    ])
+
+    const detailsSection = (await screen.findByRole('heading', { name: '欠款明细' })).closest('section') as HTMLElement
+    expect(within(detailsSection).queryByText('逐笔记录')).toBeNull()
+    const rows = within(detailsSection).getAllByRole('button')
+    expect(rows).toHaveLength(2)
+    expect(detailsSection.querySelectorAll('.record-date')[0]?.textContent).toBe(shortDate(monthSecondDay))
+    expect(detailsSection.querySelectorAll('.record-date')[1]?.textContent).toBe(shortDate(monthStart))
+
+    const secondRow = within(detailsSection).getByRole('button', { name: `编辑欠款 林晓 ${shortDate(monthStart)} ¥200.00 第二笔` })
+    expect(secondRow).toBe(rows[1])
+    expect(secondRow.querySelector('.record-value')).toBeTruthy()
+    expect(secondRow.querySelector('.record-amount')?.textContent).toBe('¥200.00')
+    expect(secondRow.querySelector('.record-note')?.textContent).toBe('第二笔')
+    expect(secondRow.querySelector('.record-chevron')).toBeTruthy()
+    await user.click(secondRow)
+
+    const editorDialog = screen.getByRole('dialog', { name: '编辑记录' })
+    expect(within(editorDialog).getByDisplayValue('200.00')).toBeTruthy()
+    expect(within(editorDialog).getByRole('button', { name: '保存记录' })).toBeTruthy()
+    expect(within(editorDialog).getByRole('button', { name: '删除记录' })).toBeTruthy()
+    const amountInput = within(editorDialog).getByDisplayValue('200.00')
+    await user.clear(amountInput)
+    await user.type(amountInput, '220')
+    await user.click(within(editorDialog).getByRole('button', { name: '保存记录' }))
+    expect(mocks.saveDebtOffline).toHaveBeenCalledWith(expect.objectContaining({ id: 'd2', initialAmountCents: 22000 }))
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await user.click(within(detailsSection).getByRole('button', { name: `编辑欠款 林晓 ${shortDate(monthStart)} ¥220.00 第二笔` }))
+    await user.click(within(screen.getByRole('dialog', { name: '编辑记录' })).getByRole('button', { name: '删除记录' }))
+    expect(confirmSpy).toHaveBeenCalledOnce()
+    expect(mocks.softDeleteOffline).toHaveBeenCalledWith('debt', 'd2', expect.any(String))
   })
 
   it('chooses among multiple open debts, starts with a blank numeric amount, and blocks overpayment', async () => {
@@ -160,11 +204,40 @@ describe('ClearDues mobile interactions', () => {
     ], [repayment('r1', { debtId: 'd1', amountCents: 2500 })])
 
     expect(await screen.findByText('全部往来')).toBeTruthy()
-    const detailsSection = screen.getByRole('heading', { name: '欠款明细' }).closest('section')
+    const detailsSection = screen.getByRole('heading', { name: '欠款明细' }).closest('section') as HTMLElement
     expect(detailsSection).toBeTruthy()
-    expect(within(detailsSection as HTMLElement).getByText('林晓')).toBeTruthy()
-    expect(within(detailsSection as HTMLElement).getByText('周然')).toBeTruthy()
-    expect(screen.getByText('25%')).toBeTruthy()
+    expect(within(detailsSection).queryByText('逐笔记录')).toBeNull()
+    expect(within(detailsSection).getByText('林晓')).toBeTruthy()
+    expect(within(detailsSection).getByText('周然')).toBeTruthy()
+    const detailRows = within(detailsSection).getAllByRole('button')
+    expect(detailRows).toHaveLength(2)
+    detailRows.forEach((row) => {
+      expect(row.querySelector('.record-date')?.textContent).toMatch(/^\d{1,2}月\d{1,2}日$/)
+      expect(row.querySelector('.record-value')).toBeTruthy()
+      expect(row.querySelector('.record-note')).toBeTruthy()
+      expect(row.querySelector('.record-chevron')).toBeTruthy()
+    })
+
+    const summaryCard = Array.from(document.querySelectorAll('.debt-summary-card')).find((card) => card.querySelector('h2')?.textContent === '林晓') as HTMLElement
+    expect(summaryCard).toBeTruthy()
+    expect(summaryCard.querySelector('.dark-kicker')).toBeNull()
+    expect(summaryCard.querySelector('.due-label')).toBeTruthy()
+    const progress = summaryCard.querySelector('.debt-progress') as HTMLElement
+    const progressMeta = progress.querySelectorAll('.progress-meta > span')
+    expect(progressMeta[0]?.textContent).toBe('已还 ¥25.00')
+    expect(progressMeta[1]?.textContent).toBe('总额 ¥100.00')
+    expect(progress.querySelector('.progress-meta')?.textContent).not.toContain('%')
+    expect(progress.querySelector('.progress-label')?.textContent).toBe('还款进度 25%')
+    expect(progress.querySelector('.progress-label strong')?.textContent).toBe('25%')
+    expect(progress.querySelector('.progress-track div')?.getAttribute('style')).toContain('25%')
+  })
+
+  it('keeps the reference card typography, progress alignment, and row text colors explicit', () => {
+    expect(stylesText).toMatch(/\.debt-summary-card h2\s*\{[^}]*font-weight:\s*800/)
+    expect(stylesText).toMatch(/\.details-card h2\s*\{[^}]*font-weight:\s*700/)
+    expect(stylesText).toMatch(/\.progress-label\s*\{[^}]*color:\s*var\(--emphasis\)[^}]*font-size:\s*13px[^}]*text-align:\s*left/)
+    expect(stylesText).toMatch(/\.progress-label strong\s*\{[^}]*font-weight:\s*700/)
+    expect(stylesText).toMatch(/\.record-date\s*\{[^}]*color:\s*var\(--ink\)[^}]*font-size:\s*14px/)
   })
 
   it('requires confirmation before deleting a debt and closes the detail after confirmation', async () => {

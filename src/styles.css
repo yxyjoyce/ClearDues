@@ -54,14 +54,14 @@ button { cursor: pointer; }
 .collection-note strong { color: var(--ink); }
 .section-heading { display: flex; align-items: end; justify-content: space-between; margin: 2px 2px 0; }
 .section-heading h2, .details-card h2 { margin: 4px 0 0; font-size: 18px; letter-spacing: -.04em; }
+.details-card h2 { font-weight: 700; }
 .muted { color: var(--muted); font-size: 12px; }
 
 .group-list { display: grid; gap: 14px; }
 .debt-summary-card { min-width: 0; padding: 16px; color: var(--inverse); border-radius: 18px; background: var(--emphasis); box-shadow: 0 11px 28px #11111124; }
-.debt-summary-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.debt-summary-card h2 { max-width: 100%; margin: 4px 0 3px; overflow-wrap: anywhere; font-size: 20px; line-height: 1.2; letter-spacing: -.04em; }
-.dark-kicker { color: #aaa9a1; }
-.due-label { color: #aaa9a1; font-size: 12px; }
+.debt-summary-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
+.debt-summary-card h2 { min-width: 0; max-width: 100%; flex: 1 1 auto; margin: 0; overflow-wrap: anywhere; font-size: 20px; font-weight: 800; line-height: 1.2; letter-spacing: -.04em; }
+.due-label { max-width: 48%; flex: 0 1 auto; padding: 5px 8px; color: var(--inverse); text-align: right; border: 1px solid var(--inverse); border-radius: 999px; font-size: 12px; line-height: 1.2; overflow-wrap: anywhere; }
 .debt-balance-row { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
 .debt-balance-row > div { min-width: 0; flex: 1 1 150px; }
 .balance-label { display: block; color: #aaa9a1; font-size: 13px; }
@@ -69,31 +69,29 @@ button { cursor: pointer; }
 .repay-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 1 auto; gap: 5px; min-height: 44px; max-width: 100%; padding: 9px 12px; color: var(--emphasis); text-align: center; border: 0; border-radius: 11px; background: var(--yellow); font-size: 14px; font-weight: 800; white-space: normal; overflow-wrap: anywhere; }
 .repay-button:hover, .add-debt-button:hover { background: var(--yellow-dark); }
 .debt-progress { min-width: 0; margin-top: 18px; padding: 12px; border-radius: 14px; background: var(--inverse); }
-.progress-meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; color: var(--emphasis); font-size: 13px; font-variant-numeric: tabular-nums; }
+.progress-meta { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 8px; color: var(--emphasis); font-size: 13px; font-variant-numeric: tabular-nums; }
 .progress-meta span { min-width: 0; overflow-wrap: anywhere; }
-.progress-meta span:last-child { text-align: right; white-space: nowrap; }
+.progress-meta span:last-child { text-align: right; white-space: normal; }
 .progress-track { height: 7px; margin-top: 8px; overflow: hidden; background: #e9e8de; border-radius: 99px; }
-.progress-track div { height: 100%; background: var(--emphasis); border-radius: inherit; }
-.dark-track { background: #3c3c39; }
-.dark-track div { background: var(--yellow); }
+.progress-track div { height: 100%; background: var(--yellow); border-radius: inherit; }
+.progress-label { display: block; margin-top: 7px; color: var(--emphasis); font-size: 13px; text-align: left; font-variant-numeric: tabular-nums; }
+.progress-label strong { font-weight: 700; }
 .detail-link { display: flex; align-items: center; justify-content: center; gap: 2px; width: 100%; min-height: 44px; margin-top: 8px; padding: 0; color: var(--inverse); border: 0; background: none; font-size: 14px; font-weight: 700; }
 
 .details-card, .settings-card, .login-card, .notice-card, .empty-state { border-radius: 18px; background: var(--surface); box-shadow: 0 8px 22px #524c1b0e; }
 .details-card { padding: 16px; }
 .details-card-head { display: flex; align-items: end; justify-content: space-between; }
 .debt-record-list { margin-top: 8px; }
-.debt-record { display: grid; grid-template-columns: 8px minmax(0, 1fr); align-items: start; column-gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.debt-record { display: grid; grid-template-columns: 8px minmax(0, 1fr) minmax(0, 40%) 18px; align-items: center; column-gap: 10px; width: 100%; min-width: 0; min-height: 44px; padding: 12px 0; color: var(--ink); text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; }
 .debt-record:last-child { padding-bottom: 0; border-bottom: 0; }
-.record-dot { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--yellow); }
-.record-main { display: grid; min-width: 0; gap: 6px; }
-.record-primary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 40%); align-items: start; gap: 4px 8px; min-width: 0; }
-.record-heading { display: flex; align-items: baseline; flex-wrap: wrap; min-width: 0; gap: 3px 8px; }
+.record-dot { width: 8px; height: 8px; margin-top: 0; border-radius: 50%; background: var(--yellow); }
+.record-copy { display: flex; align-items: baseline; flex-wrap: wrap; min-width: 0; gap: 3px 8px; }
 .record-person { min-width: 0; max-width: 100%; overflow-wrap: anywhere; font-size: 14px; line-height: 1.35; }
-.record-date { flex: 0 0 auto; min-width: 0; color: var(--muted); font-size: 12px; line-height: 1.35; font-variant-numeric: tabular-nums; }
-.record-amount { min-width: 0; max-width: 100%; margin: 0; color: var(--ink); text-align: right; overflow-wrap: anywhere; font-size: 14px; line-height: 1.35; font-variant-numeric: tabular-nums; white-space: normal; }
-.record-secondary { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
-.record-note { min-width: 0; flex: 1 1 auto; color: var(--muted); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
-.record-actions { display: flex; flex: 0 0 auto; gap: 4px; }
+.record-date { min-width: 0; color: var(--ink); font-size: 14px; line-height: 1.35; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.record-value { display: grid; min-width: 0; max-width: 100%; justify-items: end; gap: 2px; }
+.record-amount { min-width: 0; max-width: 100%; margin: 0; color: var(--ink); text-align: right; overflow-wrap: anywhere; font-size: 14px; font-weight: 800; line-height: 1.35; font-variant-numeric: tabular-nums; white-space: normal; }
+.record-note { min-width: 0; max-width: 100%; color: var(--muted); text-align: right; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.record-chevron { align-self: center; color: var(--ink); }
 .row-action { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .row-action.danger { color: var(--ink); }
 
