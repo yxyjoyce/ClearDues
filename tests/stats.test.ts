@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateStats, debtOccurredDate, filterDebtsByMonth, filterRepaymentsThroughMonth, repaymentProgress, remainingCents } from '../src/stats'
+import { calculateStats, debtOccurredDate, defaultDebtPerson, filterDebtsByMonth, filterRepaymentsThroughMonth, repaymentProgress, remainingCents, uniqueDebtPeople } from '../src/stats'
 import type { Debt, Repayment } from '../src/types'
 
 const debt = (overrides: Partial<Debt> = {}): Debt => ({ id: 'd1', userId: 'u1', person: 'A', direction: 'owe', initialAmountCents: 10000, occurredDate: '2026-09-01', dueDate: null, notes: '', deletedAt: null, updatedAt: '2026-09-01T00:00:00.000Z', ...overrides })
@@ -19,6 +19,15 @@ describe('ledger statistics', () => {
     const augustRepayments = filterRepaymentsThroughMonth([beforeMonthEnd, laterRepayment], '2026-08')
     expect(augustRepayments).toEqual([beforeMonthEnd])
     expect(remainingCents(historicalDebt, augustRepayments)).toBe(7500)
+  })
+
+  it('prefers the most recently used existing person and removes duplicate names', () => {
+    const recent = debt({ id: 'recent', person: '  李晓  ', updatedAt: '2026-09-04T00:00:00.000Z' })
+    const duplicate = debt({ id: 'duplicate', person: '李晓', updatedAt: '2026-09-03T00:00:00.000Z' })
+    const older = debt({ id: 'older', person: '周然', updatedAt: '2026-09-02T00:00:00.000Z' })
+    expect(uniqueDebtPeople([older, duplicate, recent])).toEqual(['李晓', '周然'])
+    expect(defaultDebtPerson([older, duplicate, recent])).toBe('李晓')
+    expect(defaultDebtPerson([debt({ deletedAt: '2026-09-04' })])).toBe('')
   })
 
   it('calculates balances and monthly payments while ignoring soft deletes', () => {

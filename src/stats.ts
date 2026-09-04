@@ -15,6 +15,24 @@ export function filterRepaymentsThroughMonth(repayments: Repayment[], month: str
   return repayments.filter((repayment) => !repayment.deletedAt && repayment.date <= monthEnd)
 }
 
+export function uniqueDebtPeople(debts: Debt[]): string[] {
+  const seen = new Set<string>()
+  return [...debts]
+    .filter((debt) => !debt.deletedAt)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map((debt) => debt.person.trim())
+    .filter((person) => {
+      const key = person.toLocaleLowerCase()
+      if (!person || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+}
+
+export function defaultDebtPerson(debts: Debt[]): string {
+  return uniqueDebtPeople(debts)[0] ?? ''
+}
+
 export function activeRepayments(repayments: Repayment[]): Repayment[] {
   return repayments.filter((item) => !item.deletedAt)
 }

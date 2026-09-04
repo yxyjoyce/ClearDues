@@ -22,3 +22,75 @@ form { display: grid; gap: 13px; } label { display: grid; gap: 6px; color: var(-
 .auth-gate { position: relative; display: grid; min-height: 100svh; place-items: center; overflow: hidden; padding: 26px 18px calc(26px + env(safe-area-inset-bottom)); background: #f6edb4; }.auth-card { width: min(100%, 430px); padding: 25px 20px 20px; border-radius: 25px; background: #fff; box-shadow: 0 24px 70px #524c1b22; }.auth-intro { padding: 1px 3px 21px; }.auth-brand { display: flex; align-items: center; gap: 8px; margin-bottom: 27px; color: #111; font-size: 13px; font-weight: 800; }.auth-mark { display: grid; place-items: center; width: 39px; height: 39px; color: #111; border-radius: 13px; background: var(--yellow); }.auth-intro h1 { max-width: 310px; margin: 7px 0 0; color: #111; font-size: clamp(30px, 8vw, 38px); line-height: 1.1; letter-spacing: -.06em; }.auth-intro > p:last-child { max-width: 330px; margin: 12px 0 0; color: #77776f; font-size: 13px; line-height: 1.65; }.auth-mode { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 0 0 18px; padding: 4px; border-radius: 13px; background: #f5f1d7; }.auth-mode button { padding: 10px; color: #77776f; border: 0; border-radius: 9px; background: transparent; font-size: 13px; font-weight: 700; }.auth-mode button.selected { color: #111; background: var(--yellow); }.auth-form { gap: 14px; }.auth-form label { color: #66665f; font-size: 12px; }.auth-form input { min-height: 46px; padding: 12px 13px; border-color: #e7e6da; border-radius: 12px; background: #fbfbf7; }.auth-submit { min-height: 48px; margin-top: 3px; border-radius: 12px; }.auth-submit:disabled { cursor: wait; opacity: .68; }.auth-message { margin: -3px 0 0; line-height: 1.55; }.auth-note { margin: 17px 2px 0; color: #99998e; font-size: 11px; line-height: 1.5; text-align: center; }.auth-gate .notice-card { margin: 0; background: #fff; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid #f4d62f99; outline-offset: 2px; }
 @media (min-width: 640px) { .app-shell { padding-right: 22px; padding-left: 22px; }.bottom-nav { left: 50%; width: 760px; transform: translateX(-50%); border-right: 1px solid var(--line); border-left: 1px solid var(--line); }.bottom-actions { left: 50%; width: 760px; transform: translateX(-50%); } .auth-card { padding: 31px 32px 26px; } }
+
+/* Reference layout refinements */
+:root { background: #fff; }
+body { background: #fff; }
+.app-shell { padding-bottom: calc(155px + env(safe-area-inset-bottom)); background: #fff; }
+.topbar { padding: 28px 20px 21px; }
+.brand-mark { display: none; }
+.brand-lockup { font-size: 30px; letter-spacing: -.065em; }
+.topbar-tools { gap: 14px; }
+.month-select { gap: 7px; color: #111; }
+.month-select select { max-width: 110px; color: #111; font-size: 16px; font-weight: 500; }
+.theme-toggle { display: flex; align-items: center; justify-content: space-between; width: 86px; height: 40px; padding: 3px; color: #111; border: 1px solid #d5d5d5; border-radius: 999px; background: #fff; }
+.theme-toggle::before { display: grid; width: 34px; height: 34px; place-items: center; content: '☼'; color: #111; border-radius: 50%; background: var(--yellow); font-size: 23px; line-height: 1; }
+.theme-toggle svg { width: 22px; height: 22px; margin-right: 5px; }
+.theme-dark .theme-toggle { color: #111; background: #fff; }
+.theme-dark .theme-toggle::before { background: #fff; }
+.theme-dark .theme-toggle svg { padding: 5px; width: 34px; height: 34px; margin: 0; color: #111; border-radius: 50%; background: var(--yellow); }
+.page-content { padding: 0 20px; }
+.overview-page { gap: 17px; padding-top: 9px; }
+.summary-card { min-height: 160px; padding: 25px 29px; justify-content: flex-start; gap: 27px; border-radius: 23px; box-shadow: 0 9px 23px #1111110d; }
+.summary-icon { width: 70px; height: 70px; flex: 0 0 auto; color: #111; border-radius: 50%; background: #fff6ce; }
+.summary-icon svg { width: 38px; height: 38px; }
+.summary-copy strong { margin-top: 8px; font-size: clamp(37px, 9vw, 57px); letter-spacing: -.065em; }
+.summary-copy .card-kicker { color: #111; font-size: 16px; letter-spacing: 0; text-transform: none; }
+.summary-copy span { margin-top: 8px; font-size: 12px; }
+.collection-note { margin: -4px 4px 0; }
+.debt-summary-card { padding: 25px 25px 20px; border-radius: 23px; }
+.debt-summary-card h2 { margin-top: 0; font-size: 31px; }
+.debt-summary-head > div:first-child { display: flex; flex-direction: column; align-items: flex-start; }
+.dark-kicker { display: none; }
+.due-label { order: 2; margin-top: 8px; padding: 7px 14px; color: #fff; border: 1px solid #fff; border-radius: 999px; font-size: 13px; }
+.debt-balance-row { margin-top: 31px; }
+.balance-label { color: #fff; font-size: 15px; }
+.debt-balance-row strong { font-size: clamp(39px, 10vw, 60px); }
+.repay-button { padding: 15px 18px; border-radius: 13px; font-size: 16px; }
+.debt-progress { margin: 25px -1px 0; padding: 18px 17px 15px; border-radius: 17px; background: #fff; }
+.debt-progress .progress-meta { color: #111; font-size: 15px; }
+.debt-progress .progress-meta span:last-child { display: none; }
+.dark-track { height: 10px; margin-top: 15px; background: #ececec; }
+.dark-track div { background: var(--yellow); }
+.debt-progress::after { display: block; margin-top: 15px; color: #111; content: '还款进度'; font-size: 15px; }
+.detail-link { justify-content: center; width: 100%; margin-top: 21px; font-size: 17px; }
+.details-card { padding: 25px 29px 17px; border-radius: 23px; box-shadow: 0 9px 23px #1111110d; }
+.details-card h2 { margin-top: 0; font-size: 25px; }
+.details-card-head .card-kicker { display: none; }
+.debt-record { gap: 11px; padding: 16px 0; }
+.record-dot { width: 16px; height: 16px; flex: 0 0 auto; border-radius: 50%; background: var(--yellow); }
+.record-date { color: #111; font-size: 16px; }
+.record-body strong { display: none; }
+.record-body span { color: #7b7b7b; font-size: 14px; }
+.record-amount { order: 3; align-self: flex-start; font-size: 17px; }
+.record-actions { display: flex; order: 4; gap: 1px; }
+.record-arrow { order: 5; }
+.bottom-actions { bottom: calc(79px + env(safe-area-inset-bottom)); padding: 9px 20px; background: #fff; }
+.add-debt-button { min-height: 54px; border-radius: 13px; font-size: 18px; }
+.bottom-nav { right: 20px; bottom: 12px; left: 20px; gap: 0; justify-content: space-around; padding: 13px 20px calc(13px + env(safe-area-inset-bottom)); border: 0; border-radius: 23px; background: #fff; box-shadow: 0 5px 24px #11111112; }
+.bottom-nav button { gap: 5px; color: #111; font-size: 13px; }
+.bottom-nav button.active { color: #e2bd00; }
+.compact-record-page { padding-top: 0; }.compact-record-page .account-list { padding-top: 5px; }
+.account-row { padding: 16px 3px; }
+.record-actions button, .detail-row-actions button { cursor: pointer; }
+.record-arrow { color: #111; }
+.detail-row-actions { display: flex; grid-column: 1 / -1; gap: 6px; justify-content: flex-end; }
+.row-action { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; color: #111; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.row-action.danger { color: #111; }
+.person-picker { display: flex; align-items: center; gap: 7px; }.person-picker > input, .person-picker > select { min-width: 0; flex: 1; }.person-mode-button { display: grid; place-items: center; width: 42px; height: 42px; flex: 0 0 auto; color: #111; border: 0; border-radius: 10px; background: var(--yellow); }
+.auth-gate { background: #fff; }
+.theme-toggle::before { display: none; content: none; }
+.theme-choice { display: grid; place-items: center; width: 34px; height: 34px; color: #111; border-radius: 50%; }
+.theme-choice.selected { background: var(--yellow); }
+.theme-toggle .theme-choice svg, .theme-dark .theme-toggle .theme-choice svg { width: 20px; height: 20px; padding: 0; margin: 0; color: #111; border-radius: 0; background: transparent; }
+@media (min-width: 640px) { .bottom-nav { right: 50%; left: auto; width: 720px; transform: translateX(50%); } .bottom-actions { right: 50%; left: auto; width: 720px; transform: translateX(50%); } }
