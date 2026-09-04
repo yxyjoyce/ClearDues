@@ -1,6 +1,10 @@
 import Dexie, { type Table } from 'dexie'
 import type { Debt, OutboxOperation, Repayment } from './types'
 
+function normalizeDebt(debt: Debt): Debt {
+  return { ...debt, occurredDate: debt.occurredDate ?? debt.updatedAt.slice(0, 10) }
+}
+
 class LedgerDatabase extends Dexie {
   debts!: Table<Debt, string>
   repayments!: Table<Repayment, string>
@@ -20,7 +24,7 @@ export const ledgerDb = new LedgerDatabase()
 
 export async function readLocalLedger(userId: string): Promise<{ debts: Debt[]; repayments: Repayment[] }> {
   const [debts, repayments] = await Promise.all([
-    ledgerDb.debts.where('userId').equals(userId).toArray(),
+    ledgerDb.debts.where('userId').equals(userId).toArray().then((rows) => rows.map(normalizeDebt)),
     ledgerDb.repayments.where('userId').equals(userId).toArray(),
   ])
   return { debts, repayments }

@@ -1,5 +1,20 @@
 import type { Debt, LedgerStats, Repayment } from './types'
 
+export function debtOccurredDate(debt: Debt): string {
+  return debt.occurredDate ?? debt.updatedAt.slice(0, 10)
+}
+
+export function filterDebtsByMonth(debts: Debt[], month: string): Debt[] {
+  return debts.filter((debt) => !debt.deletedAt && debtOccurredDate(debt).startsWith(month))
+}
+
+export function filterRepaymentsThroughMonth(repayments: Repayment[], month: string): Repayment[] {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate()
+  const monthEnd = `${month}-${String(lastDay).padStart(2, '0')}`
+  return repayments.filter((repayment) => !repayment.deletedAt && repayment.date <= monthEnd)
+}
+
 export function activeRepayments(repayments: Repayment[]): Repayment[] {
   return repayments.filter((item) => !item.deletedAt)
 }
