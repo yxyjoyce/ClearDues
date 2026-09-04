@@ -3,7 +3,7 @@ import { ArrowDownLeft, ArrowUpRight, CalendarDays, Check, ChevronRight, Cloud, 
 import { readLocalLedger, saveDebtOffline, saveRepaymentOffline, softDeleteOffline } from './db'
 import { formatCents, formatYuan, parseAmountToCents } from './money'
 import { calculateStats, repaymentProgress, remainingCents } from './stats'
-import { isDemoEnabled, sendMagicLink, supabase, supabaseConfigured } from './supabase'
+import { isDemoEnabled, signInWithPassword, signUpWithPassword, supabase, supabaseConfigured } from './supabase'
 import { syncLedger } from './sync'
 import type { Debt, Direction, Repayment } from './types'
 import './styles.css'
@@ -151,9 +151,25 @@ function Bills({ debts, repayments, onEdit }: { debts: Debt[]; repayments: Repay
 }
 
 function LoginGate() {
-  const [email, setEmail] = useState(''); const [message, setMessage] = useState('')
-  async function login(event: React.FormEvent) { event.preventDefault(); const result = await sendMagicLink(email.trim()); setMessage(result.error ?? '登录链接已发送，请检查邮箱。') }
-  return <main className="auth-gate"><div className="auth-mark"><CreditCard size={26} /></div><p className="eyebrow">个人还账本</p><h1>把每笔往来记清楚</h1><p>登录后，你的欠款与还款记录会安全同步到自己的设备。</p>{supabaseConfigured ? <form onSubmit={login}><label htmlFor="login-email">邮箱地址</label><input id="login-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" required /><button className="primary-button full" type="submit">发送登录链接</button>{message && <p className="form-message">{message}</p>}</form> : <div className="notice-card"><CloudOff size={18} /><div><strong>同步尚未配置</strong><p>请复制 .env.example 为 .env.local，填入 Supabase URL 和 Publishable Key。未配置时不会显示或写入账目。</p></div></div>}</main>
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [confirmPassword, setConfirmPassword] = useState('')
+  const [message, setMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null); const [submitting, setSubmitting] = useState(false)
+  const isSignup = mode === 'signup'
+
+  function switchMode(nextMode: 'login' | 'signup') { setMode(nextMode); setMessage(null); setConfirmPassword('') }
+  async function submit(event: React.FormEvent) {
+    event.preventDefault(); setMessage(null)
+    const cleanEmail = email.trim()
+    if (isSignup && password !== confirmPassword) { setMessage({ kind: 'error', text: '两次输入的密码不一致。' }); return }
+    setSubmitting(true)
+    let result
+    try { result = isSignup ? await signUpWithPassword(cleanEmail, password) : await signInWithPassword(cleanEmail, password) } catch { setSubmitting(false); setMessage({ kind: 'error', text: '当前无法连接认证服务，请检查网络后重试。' }); return }
+    setSubmitting(false)
+    if (result.error) { setMessage({ kind: 'error', text: result.error }); return }
+    setMessage({ kind: 'success', text: isSignup && result.needsEmailConfirmation ? '注册成功。请打开确认邮件完成邮箱验证，然后返回这里登录；应用不会发送登录链接。' : isSignup ? '注册成功，正在进入账本…' : '登录成功，正在进入账本…' })
+  }
+
+  return <main className="auth-gate"><div className="auth-card"><div className="auth-intro"><div className="auth-brand"><div className="auth-mark"><CreditCard size={22} /></div><span>随手记</span></div><p className="eyebrow">个人还账本</p><h1>把每笔往来记清楚</h1><p>记录欠款、还款和到期日，让账目清楚，心里轻松。</p></div>{supabaseConfigured ? <><div className="auth-mode" role="tablist" aria-label="认证方式"><button type="button" role="tab" aria-selected={!isSignup} className={!isSignup ? 'selected' : ''} onClick={() => switchMode('login')}>登录</button><button type="button" role="tab" aria-selected={isSignup} className={isSignup ? 'selected' : ''} onClick={() => switchMode('signup')}>注册</button></div><form className="auth-form" onSubmit={submit}><label htmlFor="auth-email">邮箱地址<input id="auth-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" autoComplete="email" required /></label><label htmlFor="auth-password">密码<input id="auth-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="至少 6 位字符" autoComplete={isSignup ? 'new-password' : 'current-password'} minLength={6} required /></label>{isSignup && <label htmlFor="auth-confirm-password">确认密码<input id="auth-confirm-password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="再次输入密码" autoComplete="new-password" minLength={6} required /></label>}<button className="primary-button full auth-submit" type="submit" disabled={submitting}>{submitting ? '处理中…' : isSignup ? '创建账号' : '登录账本'}</button>{message && <p className={`${message.kind === 'error' ? 'error-message' : 'form-message'} auth-message`} role="status">{message.text}</p>}</form><p className="auth-note">邮箱+密码登录 · 数据仅同步到你的 Supabase 账号</p></> : <div className="notice-card"><CloudOff size={18} /><div><strong>同步尚未配置</strong><p>请复制 .env.example 为 .env.local，填入 Supabase URL 和 Publishable Key。未配置时不会显示或写入账目。</p></div></div>}</div></main>
 }
 
 function SettingsPanel({ email, onSignOut }: { email: string | null; onSignOut: () => void }) {
