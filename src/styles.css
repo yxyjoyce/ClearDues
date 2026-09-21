@@ -66,6 +66,7 @@ button { cursor: pointer; }
 .debt-balance-row > div { min-width: 0; flex: 1 1 150px; }
 .balance-label { display: block; color: #aaa9a1; font-size: 13px; }
 .debt-balance-row strong { display: block; max-width: 100%; margin-top: 3px; overflow-wrap: anywhere; color: var(--inverse); font-size: 30px; line-height: 1; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+.interest-hint { display: block; margin-top: 5px; color: #aaa9a1; font-size: 12px; line-height: 1.4; }
 .repay-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 1 auto; gap: 5px; min-height: 44px; max-width: 100%; padding: 9px 12px; color: var(--emphasis); text-align: center; border: 0; border-radius: 11px; background: var(--yellow); font-size: 14px; font-weight: 800; white-space: normal; overflow-wrap: anywhere; }
 .repay-button:hover, .add-debt-button:hover { background: var(--yellow-dark); }
 .debt-progress { min-width: 0; margin-top: 18px; padding: 12px; border-radius: 14px; background: var(--inverse); }
@@ -91,6 +92,7 @@ button { cursor: pointer; }
 .record-value { display: grid; min-width: 0; max-width: 100%; justify-items: end; gap: 2px; }
 .record-amount { min-width: 0; max-width: 100%; margin: 0; color: var(--ink); text-align: right; overflow-wrap: anywhere; font-size: 14px; font-weight: 800; line-height: 1.35; font-variant-numeric: tabular-nums; white-space: normal; }
 .record-note { min-width: 0; max-width: 100%; color: var(--muted); text-align: right; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.record-interest { min-width: 0; max-width: 100%; color: var(--muted); text-align: right; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
 .record-chevron { align-self: center; color: var(--ink); }
 .row-action { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .row-action.danger { color: var(--ink); }
@@ -147,6 +149,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--yellow-dark); bo
 .error-message, .form-message { margin: -3px 0 0; padding: 8px 10px; color: var(--emphasis); border-radius: 9px; background: var(--yellow); font-size: 13px; line-height: 1.45; }
 .form-message { color: var(--emphasis); }
 .empty-field { margin: 0; padding: 10px 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 10px; background: var(--surface-muted); font-size: 13px; line-height: 1.45; }
+.interest-toggle > span { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); }
+.interest-toggle input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--yellow-dark); }
+.interest-toggle small { color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.5; }
 
 .detail-modal { color: var(--ink); }
 .detail-modal .sheet-title { align-items: start; }
@@ -154,6 +159,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--yellow-dark); bo
 .detail-balance { min-width: 0; padding: 16px; color: var(--inverse); border-radius: 16px; background: var(--emphasis); }
 .detail-balance > span:first-child { color: #aaa9a1; font-size: 13px; }
 .detail-balance strong { display: block; margin-top: 5px; overflow-wrap: anywhere; font-size: 30px; line-height: 1.1; letter-spacing: -.05em; }
+.detail-balance .interest-hint { color: #aaa9a1; }
 .detail-balance .progress-track { background: #3c3c39; }
 .detail-balance .progress-track div { background: var(--yellow); }
 .detail-progress-label { display: block; margin-top: 7px; color: #aaa9a1; font-size: 12px; }

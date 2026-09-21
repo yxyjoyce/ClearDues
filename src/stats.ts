@@ -1,4 +1,5 @@
 import type { Debt, LedgerStats, Repayment } from './types'
+import { asOfForMonth, calculateDebtBalance, todayLocalDate } from './interest'
 
 export function debtOccurredDate(debt: Debt): string {
   return debt.occurredDate ?? debt.updatedAt.slice(0, 10)
@@ -37,28 +38,33 @@ export function activeRepayments(repayments: Repayment[]): Repayment[] {
   return repayments.filter((item) => !item.deletedAt)
 }
 
-export function remainingCents(debt: Debt, repayments: Repayment[]): number {
-  const paid = activeRepayments(repayments)
-    .filter((item) => item.debtId === debt.id)
-    .reduce((sum, item) => sum + item.amountCents, 0)
-  return Math.max(0, debt.initialAmountCents - paid)
+export function debtBalance(debt: Debt, repayments: Repayment[], asOf = todayLocalDate()) {
+  return calculateDebtBalance(debt, repayments, asOf)
 }
 
-export function calculateStats(debts: Debt[], repayments: Repayment[], month = new Date()): LedgerStats {
+export function repaymentBalanceLimit(debt: Debt, repayments: Repayment[], repayment?: Repayment): number {
+  const balance = calculateDebtBalance(debt, repayments, repayment?.date ?? todayLocalDate(), repayment ? { excludeRepaymentId: repayment.id, throughRepayment: repayment } : {})
+  return balance.totalRemainingCents
+}
+
+export function remainingCents(debt: Debt, repayments: Repayment[], asOf = todayLocalDate()): number {
+  return calculateDebtBalance(debt, repayments, asOf).totalRemainingCents
+}
+
+export function calculateStats(debts: Debt[], repayments: Repayment[], month = new Date(), now = new Date()): LedgerStats {
   const activeDebts = debts.filter((item) => !item.deletedAt)
   const active = activeRepayments(repayments)
+  const monthValue = `${month.getUTCFullYear()}-${String(month.getUTCMonth() + 1).padStart(2, '0')}`
+  const asOf = asOfForMonth(monthValue, now)
   const oweBalanceCents = activeDebts
     .filter((item) => item.direction === 'owe')
-    .reduce((sum, debt) => sum + remainingCents(debt, active), 0)
+    .reduce((sum, debt) => sum + remainingCents(debt, active, asOf), 0)
   const owedBalanceCents = activeDebts
     .filter((item) => item.direction === 'owed')
-    .reduce((sum, debt) => sum + remainingCents(debt, active), 0)
-  const year = month.getFullYear()
-  const monthIndex = month.getMonth()
+    .reduce((sum, debt) => sum + remainingCents(debt, active, asOf), 0)
   const monthlyRepaymentCents = active
     .filter((item) => {
-      const date = new Date(`${item.date}T00:00:00`)
-      return date.getFullYear() === year && date.getMonth() === monthIndex
+      return item.date.startsWith(monthValue) && item.date <= asOf
     })
     .reduce((sum, item) => sum + item.amountCents, 0)
   return { oweBalanceCents, owedBalanceCents, monthlyRepaymentCents, activeDebtCount: activeDebts.length }
@@ -66,6 +72,7 @@ export function calculateStats(debts: Debt[], repayments: Repayment[], month = n
 
 export function repaymentProgress(debt: Debt, repayments: Repayment[]): number {
   if (debt.initialAmountCents <= 0) return 1
-  const remaining = remainingCents(debt, repayments)
-  return Math.min(1, Math.max(0, (debt.initialAmountCents - remaining) / debt.initialAmountCents))
+  const balance = calculateDebtBalance(debt, repayments)
+  const total = debt.initialAmountCents + balance.totalAccruedInterestCents
+  return total > 0 ? Math.min(1, Math.max(0, (total - balance.totalRemainingCents) / total)) : 1
 }

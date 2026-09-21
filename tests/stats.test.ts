@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { todayLocalDate } from '../src/interest'
 import { calculateStats, debtOccurredDate, defaultDebtPerson, filterDebtsByMonth, filterRepaymentsThroughMonth, repaymentProgress, remainingCents, uniqueDebtPeople } from '../src/stats'
 import type { Debt, Repayment } from '../src/types'
 
-const debt = (overrides: Partial<Debt> = {}): Debt => ({ id: 'd1', userId: 'u1', person: 'A', direction: 'owe', initialAmountCents: 10000, occurredDate: '2026-09-01', dueDate: null, notes: '', deletedAt: null, updatedAt: '2026-09-01T00:00:00.000Z', ...overrides })
+const debt = (overrides: Partial<Debt> = {}): Debt => ({ id: 'd1', userId: 'u1', person: 'A', direction: 'owe', initialAmountCents: 10000, annualInterestRateBps: null, occurredDate: '2026-09-01', dueDate: null, notes: '', deletedAt: null, updatedAt: '2026-09-01T00:00:00.000Z', ...overrides })
 const payment = (overrides: Partial<Repayment> = {}): Repayment => ({ id: 'r1', userId: 'u1', debtId: 'd1', amountCents: 2500, date: '2026-09-03', notes: '', deletedAt: null, updatedAt: '2026-09-03T00:00:00.000Z', ...overrides })
 
 describe('ledger statistics', () => {
@@ -35,5 +36,20 @@ describe('ledger statistics', () => {
     expect(result).toMatchObject({ oweBalanceCents: 7500, owedBalanceCents: 0, monthlyRepaymentCents: 2500, activeDebtCount: 1 })
     expect(remainingCents(debt(), [payment()])).toBe(7500)
     expect(repaymentProgress(debt(), [payment()])).toBe(0.25)
+  })
+
+  it('includes interest in selected-month statistics without UTC month drift', () => {
+    const interestDebt = debt({ initialAmountCents: 36500, annualInterestRateBps: 10000 })
+    const result = calculateStats([interestDebt], [], new Date('2026-09-01T00:00:00Z'), new Date(2026, 8, 3, 12))
+    expect(result.oweBalanceCents).toBe(36700)
+  })
+
+  it('uses principal plus accrued interest as the progress denominator', () => {
+    const today = todayLocalDate()
+    const prior = new Date()
+    prior.setDate(prior.getDate() - 1)
+    const occurredDate = todayLocalDate(prior)
+    const interestDebt = debt({ initialAmountCents: 36500, annualInterestRateBps: 10000, occurredDate })
+    expect(repaymentProgress(interestDebt, [payment({ amountCents: 100, date: today })])).toBe(100 / 36600)
   })
 })

@@ -34,7 +34,7 @@ vi.mock('../src/sync', () => ({ syncLedger: vi.fn(async () => ({ synced: true, p
 import App, { RepaymentChoiceModal } from '../src/App'
 
 const currentDate = new Date().toISOString().slice(0, 10)
-const debt = (id: string, overrides: Partial<Debt> = {}): Debt => ({ id, userId: 'demo', person: '林晓', direction: 'owe', initialAmountCents: 10000, occurredDate: currentDate, dueDate: null, notes: '', deletedAt: null, updatedAt: `${currentDate}T00:00:00.000Z`, ...overrides })
+const debt = (id: string, overrides: Partial<Debt> = {}): Debt => ({ id, userId: 'demo', person: '林晓', direction: 'owe', initialAmountCents: 10000, annualInterestRateBps: null, occurredDate: currentDate, dueDate: null, notes: '', deletedAt: null, updatedAt: `${currentDate}T00:00:00.000Z`, ...overrides })
 const repayment = (id: string, overrides: Partial<Repayment> = {}): Repayment => ({ id, userId: 'demo', debtId: 'd1', amountCents: 2500, date: currentDate, notes: '', deletedAt: null, updatedAt: `${currentDate}T00:00:00.000Z`, ...overrides })
 const monthStart = `${currentDate.slice(0, 7)}-01`
 const monthSecondDay = `${currentDate.slice(0, 7)}-02`
@@ -188,7 +188,7 @@ describe('ClearDues mobile interactions', () => {
   it('shows a settled empty state instead of an empty repayment choice list', async () => {
     const settledDebt = debt('d1')
     const onClose = vi.fn()
-    render(<RepaymentChoiceModal group={{ key: 'owe:林晓', person: '林晓', direction: 'owe', debts: [settledDebt], remaining: 0, paid: 10000, total: 10000, progress: 1 }} repayments={[repayment('r1', { debtId: 'd1', amountCents: 10000 })]} onClose={onClose} onChoose={() => undefined} />)
+    render(<RepaymentChoiceModal group={{ key: 'owe:林晓', person: '林晓', direction: 'owe', debts: [settledDebt], remaining: 0, paid: 10000, total: 10000, progress: 1, interestRemaining: 0, accruedInterest: 0, asOf: currentDate }} repayments={[repayment('r1', { debtId: 'd1', amountCents: 10000 })]} onClose={onClose} onChoose={() => undefined} />)
 
     expect(screen.getByText('这些欠款已结清，无需再记录还款。')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /剩余/ })).toBeNull()
@@ -275,5 +275,48 @@ describe('ClearDues mobile interactions', () => {
     await user.click(screen.getByRole('button', { name: '亮色主题' }))
     expect(document.documentElement.classList.contains('theme-dark')).toBe(false)
     expect(window.localStorage.getItem('cleardues-theme')).toBe('light')
+  })
+
+  it('shows the optional interest fields, saves basis points, and can turn interest off while editing', async () => {
+    const { user } = renderApp([debt('d1', { annualInterestRateBps: 325 })])
+    await user.click(await screen.findByRole('button', { name: '新增欠款' }))
+    const dialog = screen.getByRole('dialog', { name: '新增欠款' })
+    const toggle = within(dialog).getByRole('checkbox', { name: /^包含利息/ })
+    expect(within(dialog).queryByRole('spinbutton', { name: '年利率' })).toBeNull()
+    await user.click(toggle)
+    const rate = within(dialog).getByRole('spinbutton', { name: '年利率' })
+    await user.clear(rate)
+    await user.type(rate, '3.25')
+    await user.type(within(dialog).getByPlaceholderText('0.00'), '10')
+    await user.click(within(dialog).getByRole('button', { name: '保存记录' }))
+    expect(mocks.saveDebtOffline).toHaveBeenCalledWith(expect.objectContaining({ annualInterestRateBps: 325 }))
+
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    const detail = screen.getByRole('dialog', { name: '林晓' })
+    await user.click(within(detail).getAllByRole('button', { name: '编辑欠款 林晓' })[0])
+    const editor = screen.getByRole('dialog', { name: '编辑记录' })
+    const editToggle = within(editor).getByRole('checkbox', { name: /^包含利息/ })
+    expect((editToggle as HTMLInputElement).checked).toBe(true)
+    await user.click(editToggle)
+    await user.click(within(editor).getByRole('button', { name: '保存记录' }))
+    expect(mocks.saveDebtOffline).toHaveBeenLastCalledWith(expect.objectContaining({ annualInterestRateBps: null }))
+  })
+
+  it('shows interest details and limits a repayment by its selected historical date', async () => {
+    const prior = new Date()
+    prior.setDate(prior.getDate() - 1)
+    const priorDate = `${prior.getFullYear()}-${String(prior.getMonth() + 1).padStart(2, '0')}-${String(prior.getDate()).padStart(2, '0')}`
+    const { user } = renderApp([debt('d1', { occurredDate: priorDate, initialAmountCents: 36500, annualInterestRateBps: 10000 })])
+    expect(await screen.findByText(/年利率 100%/)).toBeTruthy()
+    expect(screen.getAllByText(/利息/).length).toBeGreaterThan(0)
+    await user.click(screen.getByRole('button', { name: '去还款' }))
+    const editor = screen.getByRole('dialog', { name: '记还款' })
+    const repaymentDate = editor.querySelector('input[type="date"]') as HTMLInputElement
+    await user.clear(repaymentDate)
+    await user.type(repaymentDate, priorDate)
+    await user.type(within(editor).getByPlaceholderText('0.00'), '365.50')
+    await user.click(within(editor).getByRole('button', { name: '保存记录' }))
+    expect(within(editor).getByText('还款金额不能超过该笔债务的剩余金额。')).toBeTruthy()
+    expect(mocks.saveRepaymentOffline).not.toHaveBeenCalled()
   })
 })

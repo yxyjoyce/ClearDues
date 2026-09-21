@@ -18,11 +18,13 @@ npm run build
 
 ## Supabase 配置
 
-1. 在 Supabase 项目中执行 `supabase/migrations/202609040001_create_ledger.sql`。
+1. 在 Supabase 项目中按顺序执行 `supabase/migrations/202609040001_create_ledger.sql`、`supabase/migrations/202609040002_add_debt_occurred_date.sql`、`supabase/migrations/202609210001_add_debt_interest_rate.sql`。
 2. 复制 `.env.example` 为 `.env.local`，填写 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_PUBLISHABLE_KEY`。
 3. 在 Supabase Auth 中启用 Email 和密码登录；如果启用了邮箱确认，请把本地/生产地址加入 Site URL 与 Redirect URLs。
 
 客户端只读取 URL 与 Publishable Key。绝不要把 `service_role`、`sb_secret` 或其他服务端密钥放进 Vite 环境变量、前端代码或浏览器。数据库依靠每张表的 RLS 和 `auth.uid() = user_id` 隔离用户。
+
+欠款可选按年利率计息：利率以百分比输入并按整数基点保存（1%=100），从欠款发生日开始按剩余本金逐日单利计算，按实际天数/365；还款先抵本金，再抵截至还款日已产生的利息，关闭开关则不计息。
 
 ## 离线与同步
 

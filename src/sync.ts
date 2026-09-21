@@ -9,17 +9,17 @@ function tableFor(entity: OutboxOperation['entity']): TableName {
   return entity === 'debt' ? 'debts' : 'repayments'
 }
 
-function toRemote(entity: OutboxOperation['entity'], payload: Debt | Repayment) {
+export function toRemote(entity: OutboxOperation['entity'], payload: Debt | Repayment) {
   if (entity === 'debt') {
     const debt = payload as Debt
-    return { id: debt.id, user_id: debt.userId, person: debt.person, direction: debt.direction, initial_amount_cents: debt.initialAmountCents, occurred_date: debt.occurredDate ?? debt.updatedAt.slice(0, 10), due_date: debt.dueDate, notes: debt.notes, deleted_at: debt.deletedAt, updated_at: debt.updatedAt }
+    return { id: debt.id, user_id: debt.userId, person: debt.person, direction: debt.direction, initial_amount_cents: debt.initialAmountCents, annual_interest_rate_bps: debt.annualInterestRateBps ?? null, occurred_date: debt.occurredDate ?? debt.updatedAt.slice(0, 10), due_date: debt.dueDate, notes: debt.notes, deleted_at: debt.deletedAt, updated_at: debt.updatedAt }
   }
   const repayment = payload as Repayment
   return { id: repayment.id, user_id: repayment.userId, debt_id: repayment.debtId, amount_cents: repayment.amountCents, date: repayment.date, notes: repayment.notes, deleted_at: repayment.deletedAt, updated_at: repayment.updatedAt }
 }
 
-function fromRemote(entity: OutboxOperation['entity'], row: Record<string, unknown>): Debt | Repayment {
-  if (entity === 'debt') return { id: String(row.id), userId: String(row.user_id), person: String(row.person), direction: row.direction as Debt['direction'], initialAmountCents: Number(row.initial_amount_cents), occurredDate: row.occurred_date ? String(row.occurred_date) : String(row.updated_at).slice(0, 10), dueDate: row.due_date ? String(row.due_date) : null, notes: String(row.notes ?? ''), deletedAt: row.deleted_at ? String(row.deleted_at) : null, updatedAt: String(row.updated_at) }
+export function fromRemote(entity: OutboxOperation['entity'], row: Record<string, unknown>): Debt | Repayment {
+  if (entity === 'debt') return { id: String(row.id), userId: String(row.user_id), person: String(row.person), direction: row.direction as Debt['direction'], initialAmountCents: Number(row.initial_amount_cents), annualInterestRateBps: row.annual_interest_rate_bps == null ? null : Number(row.annual_interest_rate_bps), occurredDate: row.occurred_date ? String(row.occurred_date) : String(row.updated_at).slice(0, 10), dueDate: row.due_date ? String(row.due_date) : null, notes: String(row.notes ?? ''), deletedAt: row.deleted_at ? String(row.deleted_at) : null, updatedAt: String(row.updated_at) }
   return { id: String(row.id), userId: String(row.user_id), debtId: String(row.debt_id), amountCents: Number(row.amount_cents), date: String(row.date), notes: String(row.notes ?? ''), deletedAt: row.deleted_at ? String(row.deleted_at) : null, updatedAt: String(row.updated_at) }
 }
 

@@ -6,6 +6,7 @@ export interface Debt {
   person: string
   direction: Direction
   initialAmountCents: number
+  annualInterestRateBps: number | null
   /** Date the debt happened; optional only while reading legacy local rows. */
   occurredDate?: string
   dueDate: string | null

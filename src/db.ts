@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import type { Debt, OutboxOperation, Repayment } from './types'
 
 function normalizeDebt(debt: Debt): Debt {
-  return { ...debt, occurredDate: debt.occurredDate ?? debt.updatedAt.slice(0, 10) }
+  return { ...debt, occurredDate: debt.occurredDate ?? debt.updatedAt.slice(0, 10), annualInterestRateBps: debt.annualInterestRateBps ?? null }
 }
 
 class LedgerDatabase extends Dexie {
