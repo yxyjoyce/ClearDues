@@ -39,6 +39,8 @@ const repayment = (id: string, overrides: Partial<Repayment> = {}): Repayment =>
 const monthStart = `${currentDate.slice(0, 7)}-01`
 const monthSecondDay = `${currentDate.slice(0, 7)}-02`
 const shortDate = (value: string) => { const [, month, day] = value.split('-'); return `${Number(month)}月${Number(day)}日` }
+const dateInPreviousMonth = (() => { const value = new Date(`${currentDate}T12:00:00`); value.setDate(1); value.setMonth(value.getMonth() - 1); value.setDate(15); return value.toISOString().slice(0, 10) })()
+const dateAfterToday = (() => { const value = new Date(`${currentDate}T12:00:00`); value.setDate(value.getDate() + 1); return value.toISOString().slice(0, 10) })()
 
 function renderApp(debts: Debt[], repayments: Repayment[] = []) {
   mocks.ledger.debts = debts
@@ -63,6 +65,43 @@ afterEach(() => {
 })
 
 describe('ClearDues mobile interactions', () => {
+  it('defaults to all debts and includes historical records', async () => {
+    renderApp([
+      debt('history', { person: '历史欠款', occurredDate: dateInPreviousMonth, notes: '历史记录' }),
+      debt('current', { person: '本月欠款', notes: '本月记录' }),
+    ])
+
+    const monthSelect = await screen.findByRole('combobox', { name: '选择月份' })
+    expect((monthSelect as HTMLSelectElement).value).toBe('all')
+    expect(screen.getByRole('option', { name: '全部欠款' })).toBeTruthy()
+    expect(screen.getByText('全部待还')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /历史欠款.*历史记录/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /本月欠款.*本月记录/ })).toBeTruthy()
+  })
+
+  it('does not count a future repayment in the all-debts balance', async () => {
+    renderApp([
+      debt('history', { occurredDate: dateInPreviousMonth, initialAmountCents: 10000 }),
+    ], [repayment('future', { debtId: 'history', amountCents: 10000, date: dateAfterToday })])
+
+    await screen.findByText('全部待还')
+    expect(document.querySelector('.summary-card strong')?.textContent).toBe('¥100.00')
+  })
+
+  it('shows only the selected month after switching away from all debts', async () => {
+    const { user } = renderApp([
+      debt('history', { person: '历史欠款', occurredDate: dateInPreviousMonth, notes: '历史记录' }),
+      debt('current', { person: '本月欠款', notes: '本月记录' }),
+    ])
+
+    const monthSelect = await screen.findByRole('combobox', { name: '选择月份' })
+    await user.selectOptions(monthSelect, dateInPreviousMonth.slice(0, 7))
+
+    expect((monthSelect as HTMLSelectElement).value).toBe(dateInPreviousMonth.slice(0, 7))
+    expect(screen.getByRole('button', { name: /历史欠款.*历史记录/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /本月欠款.*本月记录/ })).toBeNull()
+  })
+
   it('opens the debt editor directly and switches from an existing person to a new person', async () => {
     const { user } = renderApp([debt('d1')])
 

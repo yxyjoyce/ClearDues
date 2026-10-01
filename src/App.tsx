@@ -20,7 +20,7 @@ const nowIso = () => new Date().toISOString()
 const today = () => todayLocalDate()
 const recordDate = (debt: Debt) => debtOccurredDate(debt)
 const shortRecordDate = (debt: Debt) => { const [, month, day] = recordDate(debt).split('-'); return `${Number(month)}月${Number(day)}日` }
-const monthLabel = (value: string) => { const [year, month] = value.split('-'); return `${year}年${Number(month)}月` }
+const monthLabel = (value: string) => { if (value === 'all') return '全部欠款'; const [year, month] = value.split('-'); return `${year}年${Number(month)}月` }
 const monthOptions = () => Array.from({ length: 12 }, (_, index) => { const date = new Date(); date.setDate(1); date.setMonth(date.getMonth() - index); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` })
 const initialTheme = (): Theme => { try { return window.localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light' } catch { return 'light' } }
 
@@ -59,7 +59,7 @@ function groupDebts(debts: Debt[], repayments: Repayment[], asOf: string): DebtG
 export default function App() {
   const [tab, setTab] = useState<Tab>('overview')
   const [theme, setTheme] = useState<Theme>(initialTheme)
-  const [selectedMonth, setSelectedMonth] = useState(() => today().slice(0, 7))
+  const [selectedMonth, setSelectedMonth] = useState('all')
   const [debts, setDebts] = useState<Debt[]>(isDemoEnabled ? demoDebts : [])
   const [repayments, setRepayments] = useState<Repayment[]>([])
   const [editor, setEditor] = useState<Editor>(null)
@@ -99,11 +99,11 @@ export default function App() {
 
   const visibleDebts = useMemo(() => debts.filter((item) => !item.deletedAt), [debts])
   const visibleRepayments = useMemo(() => repayments.filter((item) => !item.deletedAt), [repayments])
-  const availableMonths = useMemo(() => [...new Set([...monthOptions(), ...visibleDebts.map((debt) => recordDate(debt).slice(0, 7))])], [visibleDebts])
-  const monthDebts = useMemo(() => filterDebtsByMonth(visibleDebts, selectedMonth), [visibleDebts, selectedMonth])
-  const periodRepayments = useMemo(() => filterRepaymentsThroughMonth(visibleRepayments, selectedMonth), [visibleRepayments, selectedMonth])
-  const stats = useMemo(() => calculateStats(monthDebts, periodRepayments, new Date(`${selectedMonth}-01T00:00:00Z`)), [monthDebts, periodRepayments, selectedMonth])
-  const selectedAsOf = useMemo(() => asOfForMonth(selectedMonth), [selectedMonth])
+  const availableMonths = useMemo(() => ['all', ...new Set([...monthOptions(), ...visibleDebts.map((debt) => recordDate(debt).slice(0, 7))])], [visibleDebts])
+  const selectedAsOf = useMemo(() => selectedMonth === 'all' ? today() : asOfForMonth(selectedMonth), [selectedMonth])
+  const monthDebts = useMemo(() => selectedMonth === 'all' ? visibleDebts : filterDebtsByMonth(visibleDebts, selectedMonth), [visibleDebts, selectedMonth])
+  const periodRepayments = useMemo(() => selectedMonth === 'all' ? visibleRepayments.filter((repayment) => repayment.date <= selectedAsOf) : filterRepaymentsThroughMonth(visibleRepayments, selectedMonth), [visibleRepayments, selectedMonth, selectedAsOf])
+  const stats = useMemo(() => calculateStats(monthDebts, periodRepayments, new Date(`${(selectedMonth === 'all' ? selectedAsOf : selectedMonth).slice(0, 7)}-01T00:00:00Z`)), [monthDebts, periodRepayments, selectedAsOf, selectedMonth])
   const groups = useMemo(() => groupDebts(monthDebts, periodRepayments, selectedAsOf), [monthDebts, periodRepayments, selectedAsOf])
   const detailGroup = groups.find((group) => group.key === detailKey) ?? null
 
@@ -154,7 +154,7 @@ export default function App() {
 
 function Overview({ groups, debts, stats, month, repayments, asOf, onEdit, onOpenDetails, onAddRepayment }: { groups: DebtGroup[]; debts: Debt[]; stats: ReturnType<typeof calculateStats>; month: string; repayments: Repayment[]; asOf: string; onEdit: (debt: Debt) => void; onOpenDetails: (key: string) => void; onAddRepayment: (group: DebtGroup) => void }) {
   const personCount = new Set(groups.map((group) => group.person.trim().toLocaleLowerCase())).size
-  return <section className="overview-page"><div className="summary-card"><div className="summary-icon"><Wallet size={36} /></div><div className="summary-copy"><p className="card-kicker">{month === today().slice(0, 7) ? '本月待还' : `${monthLabel(month)}待还`}</p><strong>{formatYuan(stats.oweBalanceCents)}</strong><span>共 {debts.filter((debt) => debt.direction === 'owe').length} 笔欠款</span></div></div>{stats.owedBalanceCents > 0 && <div className="collection-note"><ArrowDownLeft size={17} /><span>待收 <strong>{formatYuan(stats.owedBalanceCents)}</strong></span></div>}{personCount > 1 && <div className="section-heading compact"><div><p className="card-kicker">往来对象</p><h2>全部往来</h2></div><span className="muted">{personCount} 人</span></div>}{groups.length ? <div className="group-list">{groups.map((group) => <DebtSummaryCard key={group.key} group={group} onOpenDetails={() => onOpenDetails(group.key)} onAddRepayment={onAddRepayment} />)}</div> : <EmptyState title="还没有欠款记录" description="从下方新增欠款开始，让每笔往来都有迹可循。" />}{groups.length > 0 && <DebtDetailsCard groups={groups} repayments={repayments} asOf={asOf} onEdit={onEdit} />}</section>
+  return <section className="overview-page"><div className="summary-card"><div className="summary-icon"><Wallet size={36} /></div><div className="summary-copy"><p className="card-kicker">{month === 'all' ? '全部待还' : month === today().slice(0, 7) ? '本月待还' : `${monthLabel(month)}待还`}</p><strong>{formatYuan(stats.oweBalanceCents)}</strong><span>共 {debts.filter((debt) => debt.direction === 'owe').length} 笔欠款</span></div></div>{stats.owedBalanceCents > 0 && <div className="collection-note"><ArrowDownLeft size={17} /><span>待收 <strong>{formatYuan(stats.owedBalanceCents)}</strong></span></div>}{personCount > 1 && <div className="section-heading compact"><div><p className="card-kicker">往来对象</p><h2>全部往来</h2></div><span className="muted">{personCount} 人</span></div>}{groups.length ? <div className="group-list">{groups.map((group) => <DebtSummaryCard key={group.key} group={group} onOpenDetails={() => onOpenDetails(group.key)} onAddRepayment={onAddRepayment} />)}</div> : <EmptyState title="还没有欠款记录" description="从下方新增欠款开始，让每笔往来都有迹可循。" />}{groups.length > 0 && <DebtDetailsCard groups={groups} repayments={repayments} asOf={asOf} onEdit={onEdit} />}</section>
 }
 
 function DebtSummaryCard({ group, onOpenDetails, onAddRepayment }: { group: DebtGroup; onOpenDetails: () => void; onAddRepayment: (group: DebtGroup) => void }) {
