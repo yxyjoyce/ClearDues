@@ -161,6 +161,32 @@ describe('ClearDues mobile interactions', () => {
     expect(stylesText).not.toMatch(/\.detail-debt-row[^}]*grid-row\s*:/)
   })
 
+  it('expands and collapses each debt summary independently', async () => {
+    const longNote = '这是一条较长的欠款备注，展开后需要完整显示备注和利息摘要内容'
+    const { user } = renderApp([
+      debt('d1', { notes: longNote, annualInterestRateBps: 325 }),
+      debt('d2', { notes: '另一笔欠款备注', annualInterestRateBps: 500, occurredDate: monthSecondDay }),
+    ])
+
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    const detailDialog = screen.getByRole('dialog', { name: '林晓' })
+    const copies = Array.from(detailDialog.querySelectorAll<HTMLButtonElement>('.detail-row-copy'))
+    const longSummary = copies.find((copy) => copy.querySelector('small')?.getAttribute('title')?.includes(longNote))!
+    const otherSummary = copies.find((copy) => copy !== longSummary)!
+    expect(copies).toHaveLength(2)
+    expect(longSummary.getAttribute('aria-expanded')).toBe('false')
+    expect(otherSummary.getAttribute('aria-expanded')).toBe('false')
+
+    await user.click(longSummary)
+    expect(longSummary.getAttribute('aria-expanded')).toBe('true')
+    expect(longSummary.querySelector('small')?.textContent).toContain(longNote)
+    expect(otherSummary.getAttribute('aria-expanded')).toBe('false')
+
+    await user.click(longSummary)
+    expect(longSummary.getAttribute('aria-expanded')).toBe('false')
+    expect(otherSummary.getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('opens the selected second debt row, keeps its editor actions, and can save or delete it', async () => {
     const { user } = renderApp([
       debt('d1', { occurredDate: monthSecondDay, notes: '第一笔', initialAmountCents: 10000 }),

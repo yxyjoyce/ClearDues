@@ -155,7 +155,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--yellow-dark); bo
 
 .detail-modal { color: var(--ink); }
 .detail-modal .sheet-title { align-items: start; }
-.detail-modal .sheet-title h2 { margin-top: 3px; font-size: 20px; }
+.detail-modal .sheet-title h2 { margin-top: 3px; font-size: 24px; font-weight: 800; line-height: 1.25; }
 .detail-balance { min-width: 0; padding: 16px; color: var(--inverse); border-radius: 16px; background: var(--emphasis); }
 .detail-balance > span:first-child { color: #aaa9a1; font-size: 13px; }
 .detail-balance strong { display: block; margin-top: 5px; overflow-wrap: anywhere; font-size: 30px; line-height: 1.1; letter-spacing: -.05em; }
@@ -168,9 +168,11 @@ input:focus, textarea:focus, select:focus { border-color: var(--yellow-dark); bo
 .detail-section-title h3 { min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: 16px; }
 .detail-section-title button { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 4px; color: var(--ink); border: 0; background: none; font-size: 13px; font-weight: 700; }
 .detail-debt-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(94px, 52%); align-items: center; gap: 8px; min-width: 0; padding: 4px 0; border-bottom: 1px solid var(--line); }
-.detail-row-copy { display: grid; align-content: center; min-width: 0; gap: 2px; }
+.detail-row-copy { display: grid; align-content: center; min-width: 0; gap: 2px; padding: 0; color: inherit; text-align: left; border: 0; background: transparent; font: inherit; cursor: pointer; }
 .detail-row-copy > strong { min-width: 0; color: var(--ink); font-weight: 700; line-height: 1.3; white-space: nowrap; }
 .detail-row-copy small { display: block; min-width: 0; overflow: hidden; color: var(--muted); font-size: 12px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.detail-row-copy[aria-expanded="true"] small { overflow: visible; overflow-wrap: anywhere; text-overflow: clip; white-space: normal; }
+.detail-row-copy[aria-expanded="true"] + .detail-row-actions { align-self: start; }
 .detail-row-actions { display: flex; align-items: center; justify-content: flex-end; min-width: 0; gap: 3px; }
 .detail-row-actions .row-action { flex: 0 0 44px; }
 .detail-row-amount { min-width: 0; max-width: 86px; flex: 1 1 auto; color: var(--ink); text-align: right; overflow-wrap: anywhere; font-size: 14px; font-variant-numeric: tabular-nums; }
