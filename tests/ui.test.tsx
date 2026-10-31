@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { todayLocalDate } from '../src/interest'
 import type { Debt, Repayment } from '../src/types'
 
 const stylesText = readFileSync('src/styles.css', 'utf8')
@@ -33,14 +34,14 @@ vi.mock('../src/sync', () => ({ syncLedger: vi.fn(async () => ({ synced: true, p
 
 import App, { RepaymentChoiceModal } from '../src/App'
 
-const currentDate = new Date().toISOString().slice(0, 10)
+const currentDate = todayLocalDate()
 const debt = (id: string, overrides: Partial<Debt> = {}): Debt => ({ id, userId: 'demo', person: '林晓', direction: 'owe', initialAmountCents: 10000, annualInterestRateBps: null, occurredDate: currentDate, dueDate: null, notes: '', deletedAt: null, updatedAt: `${currentDate}T00:00:00.000Z`, ...overrides })
 const repayment = (id: string, overrides: Partial<Repayment> = {}): Repayment => ({ id, userId: 'demo', debtId: 'd1', amountCents: 2500, date: currentDate, notes: '', deletedAt: null, updatedAt: `${currentDate}T00:00:00.000Z`, ...overrides })
 const monthStart = `${currentDate.slice(0, 7)}-01`
 const monthSecondDay = `${currentDate.slice(0, 7)}-02`
 const shortDate = (value: string) => { const [, month, day] = value.split('-'); return `${Number(month)}月${Number(day)}日` }
-const dateInPreviousMonth = (() => { const value = new Date(`${currentDate}T12:00:00`); value.setDate(1); value.setMonth(value.getMonth() - 1); value.setDate(15); return value.toISOString().slice(0, 10) })()
-const dateAfterToday = (() => { const value = new Date(`${currentDate}T12:00:00`); value.setDate(value.getDate() + 1); return value.toISOString().slice(0, 10) })()
+const dateInPreviousMonth = (() => { const value = new Date(`${currentDate}T12:00:00`); value.setDate(1); value.setMonth(value.getMonth() - 1); value.setDate(15); return todayLocalDate(value) })()
+const dateAfterToday = (() => { const value = new Date(`${currentDate}T12:00:00`); value.setDate(value.getDate() + 1); return todayLocalDate(value) })()
 
 function renderApp(debts: Debt[], repayments: Repayment[] = []) {
   mocks.ledger.debts = debts
@@ -137,6 +138,27 @@ describe('ClearDues mobile interactions', () => {
     await user.click(screen.getByRole('button', { name: '保存记录' }))
 
     expect(mocks.saveDebtOffline).toHaveBeenCalledWith(expect.objectContaining({ id: 'd1', initialAmountCents: 12000 }))
+  })
+
+  it('keeps detail debt rows to two text lines with amount and actions in one right-side container', async () => {
+    const longNote = '这是一条很长的备注，用来确认第二行会省略但完整内容仍可查阅'
+    const { user } = renderApp([debt('d1', { notes: longNote, annualInterestRateBps: 325 })])
+
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    const detailDialog = screen.getByRole('dialog', { name: '林晓' })
+    const row = detailDialog.querySelector('.detail-debt-row') as HTMLElement
+    const copy = row.querySelector('.detail-row-copy') as HTMLElement
+    const actions = row.querySelector('.detail-row-actions') as HTMLElement
+
+    expect(copy.children).toHaveLength(2)
+    expect(copy.querySelector('strong')?.textContent).toBe(currentDate.replaceAll('-', '.'))
+    expect(copy.querySelector('small')?.getAttribute('title')).toContain(longNote)
+    expect(actions.querySelector('.detail-row-amount')?.textContent).toMatch(/^¥100\.\d{2}$/)
+    expect(actions.querySelector('[aria-label="编辑欠款 林晓"]')).toBeTruthy()
+    expect(actions.querySelector('[aria-label="删除欠款 林晓"]')).toBeTruthy()
+    expect(stylesText).toMatch(/\.detail-row-copy small\s*\{[^}]*overflow:\s*hidden[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/)
+    expect(stylesText).not.toMatch(/\.detail-row-actions[^}]*grid-row\s*:/)
+    expect(stylesText).not.toMatch(/\.detail-debt-row[^}]*grid-row\s*:/)
   })
 
   it('opens the selected second debt row, keeps its editor actions, and can save or delete it', async () => {
