@@ -625,8 +625,22 @@ describe('ClearDues mobile interactions', () => {
     await user.type(repaymentDate, dateInPreviousMonth)
     await user.click(within(editor).getByRole('button', { name: '全部还清 100.00 元' }))
     expect((within(editor).getByRole('textbox', { name: '还款金额（元）' }) as HTMLInputElement).value).toBe('100.00')
+    await user.type(within(editor).getByRole('textbox', { name: '备注' }), '历史结算')
     await user.click(within(editor).getByRole('button', { name: '确认还款' }))
-    expect(mocks.saveRepaymentOffline).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 10000, date: dateInPreviousMonth }))
+    expect(mocks.saveRepaymentOffline).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 10000, date: dateInPreviousMonth, notes: '历史结算' }))
+  })
+
+  it('uses 收齐 wording and saves the selected amount for an incoming repayment', async () => {
+    const { user } = renderApp([debt('owed', { direction: 'owed', initialAmountCents: 12500 })])
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记收款' }))
+    const editor = screen.getByRole('dialog', { name: '记收款' })
+    expect(within(editor).getByText('本次收款')).toBeTruthy()
+    expect(within(editor).getByText(/当前待收/)).toBeTruthy()
+    await user.click(within(editor).getByRole('button', { name: '全部收齐 125.00 元' }))
+    expect((within(editor).getByRole('textbox', { name: '收款金额（元）' }) as HTMLInputElement).value).toBe('125.00')
+    await user.click(within(editor).getByRole('button', { name: '确认收款' }))
+    expect(mocks.saveRepaymentOffline).toHaveBeenCalledWith(expect.objectContaining({ debtId: 'owed', amountCents: 12500 }))
   })
 
   it('defaults interest by the selected person, clears it for a new person, and does not overwrite edits', async () => {
