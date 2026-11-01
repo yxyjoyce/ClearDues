@@ -143,6 +143,53 @@ describe('ClearDues mobile interactions', () => {
     expect(mocks.saveDebtOffline).toHaveBeenCalledWith(expect.objectContaining({ person: '周然', initialAmountCents: 1000 }))
   })
 
+  it('opens a single overview quick repayment directly and keeps card actions separate', async () => {
+    const { user } = renderApp([debt('d1')])
+    const card = (await screen.findByText('林晓')).closest('.debt-summary-card') as HTMLElement
+    const buttons = Array.from(card.querySelectorAll('button'))
+    expect(buttons).toHaveLength(2)
+    expect(buttons.every((button) => !button.querySelector('button'))).toBe(true)
+    expect(within(card).getByRole('button', { name: '去还款' })).toBeTruthy()
+
+    await user.click(within(card).getByRole('button', { name: '去还款' }))
+    expect(screen.getByRole('dialog', { name: '记还款' })).toBeTruthy()
+    expect(screen.queryByRole('dialog', { name: '林晓' })).toBeNull()
+  })
+
+  it('opens a choice list for multiple overview quick repayments and hides it for settled groups', async () => {
+    const { user } = renderApp([
+      debt('d1', { notes: '第一笔' }),
+      debt('d2', { notes: '第二笔' }),
+    ])
+    const card = (await screen.findByText('林晓')).closest('.debt-summary-card') as HTMLElement
+    await user.click(within(card).getByRole('button', { name: '去还款' }))
+    expect(screen.getByRole('dialog', { name: '选择未结清欠款' })).toBeTruthy()
+
+    cleanup()
+    renderApp([debt('settled')], [repayment('settled-repayment', { debtId: 'settled', amountCents: 10000 })])
+    const settledCard = (await screen.findByText('林晓')).closest('.debt-summary-card') as HTMLElement
+    expect(within(settledCard).queryByRole('button', { name: '去还款' })).toBeNull()
+  })
+
+  it('returns from detail to its source tab and only shows return for settled groups', async () => {
+    const { user } = renderApp([debt('d1')])
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    expect(screen.getByRole('button', { name: '返回总览' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '记还款' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: '返回总览' }))
+
+    await user.click(screen.getByRole('button', { name: '账单' }))
+    await user.click(screen.getByRole('button', { name: /查看 林晓 详情/ }))
+    expect(screen.getByRole('button', { name: '返回账单' })).toBeTruthy()
+    await user.click(screen.getByRole('button', { name: '返回账单' }))
+
+    cleanup()
+    renderApp([debt('settled')], [repayment('settled-repayment', { debtId: 'settled', amountCents: 10000 })])
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    expect(screen.getByRole('button', { name: '返回总览' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '记还款' })).toBeNull()
+  })
+
   it('keeps only one dialog when editing a debt from its detail modal and saves the selected record', async () => {
     const { user } = renderApp([debt('d1', { notes: '旅行垫付' })])
 
@@ -171,16 +218,17 @@ describe('ClearDues mobile interactions', () => {
     await user.click(await screen.findByRole('button', { name: '查看详情' }))
     const detailDialog = screen.getByRole('dialog', { name: '林晓' })
     const row = detailDialog.querySelector('.detail-debt-row') as HTMLElement
-    const copy = row.querySelector('.detail-row-copy') as HTMLElement
+    const top = row.querySelector('.detail-row-top') as HTMLElement
+    const note = row.querySelector('.detail-row-note') as HTMLButtonElement
     const actions = row.querySelector('.detail-row-actions') as HTMLElement
 
-    expect(copy.children).toHaveLength(2)
-    expect(copy.querySelector('strong')?.textContent).toBe(currentDate.replaceAll('-', '.'))
-    expect(copy.querySelector('small')?.getAttribute('title')).toContain(longNote)
+    expect(top.querySelector('.detail-row-date')?.textContent).toBe(currentDate.replaceAll('-', '.'))
+    expect(note.querySelector('small')?.getAttribute('title')).toBe(longNote)
+    expect(note.getAttribute('aria-expanded')).toBe('false')
     expect(actions.querySelector('.detail-row-amount')?.textContent).toMatch(/^¥100\.\d{2}$/)
     expect(actions.querySelector('[aria-label="编辑欠款 林晓"]')).toBeTruthy()
     expect(actions.querySelector('[aria-label="删除欠款 林晓"]')).toBeTruthy()
-    expect(stylesText).toMatch(/\.detail-row-copy small\s*\{[^}]*overflow:\s*hidden[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/)
+    expect(stylesText).toMatch(/\.detail-row-note small\s*\{[^}]*overflow:\s*hidden[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/)
     expect(stylesText).not.toMatch(/\.detail-row-actions[^}]*grid-row\s*:/)
     expect(stylesText).not.toMatch(/\.detail-debt-row[^}]*grid-row\s*:/)
   })
@@ -194,16 +242,18 @@ describe('ClearDues mobile interactions', () => {
 
     await user.click(await screen.findByRole('button', { name: '查看详情' }))
     const detailDialog = screen.getByRole('dialog', { name: '林晓' })
-    const copies = Array.from(detailDialog.querySelectorAll<HTMLButtonElement>('.detail-row-copy'))
+    const copies = Array.from(detailDialog.querySelectorAll<HTMLButtonElement>('.detail-row-note'))
     const longSummary = copies.find((copy) => copy.querySelector('small')?.getAttribute('title')?.includes(longNote))!
     const otherSummary = copies.find((copy) => copy !== longSummary)!
     expect(copies).toHaveLength(2)
     expect(longSummary.getAttribute('aria-expanded')).toBe('false')
     expect(otherSummary.getAttribute('aria-expanded')).toBe('false')
+    expect(detailDialog.querySelector('.detail-row-interest')).toBeNull()
 
     await user.click(longSummary)
     expect(longSummary.getAttribute('aria-expanded')).toBe('true')
-    expect(longSummary.querySelector('small')?.textContent).toContain(longNote)
+    expect(longSummary.querySelector('small')?.textContent).toBe(longNote)
+    expect(within(detailDialog).getByText(/累计利息/)).toBeTruthy()
     expect(otherSummary.getAttribute('aria-expanded')).toBe('false')
 
     await user.click(longSummary)
@@ -226,7 +276,7 @@ describe('ClearDues mobile interactions', () => {
 
     const secondRow = within(detailsSection).getByRole('button', { name: `编辑欠款 林晓 ${shortDate(monthStart)} ¥200.00 第二笔` })
     expect(secondRow).toBe(rows[1])
-    expect(secondRow.querySelector('.record-value')).toBeTruthy()
+    expect(secondRow.querySelector('.record-topline')).toBeTruthy()
     expect(secondRow.querySelector('.record-amount')?.textContent).toBe('¥200.00')
     expect(secondRow.querySelector('.record-note')?.textContent).toBe('第二笔')
     expect(secondRow.querySelector('.record-chevron')).toBeTruthy()
@@ -326,7 +376,7 @@ describe('ClearDues mobile interactions', () => {
     expect(detailRows).toHaveLength(2)
     detailRows.forEach((row) => {
       expect(row.querySelector('.record-date')?.textContent).toMatch(/^\d{1,2}月\d{1,2}日$/)
-      expect(row.querySelector('.record-value')).toBeTruthy()
+      expect(row.querySelector('.record-topline')).toBeTruthy()
       expect(row.querySelector('.record-note')).toBeTruthy()
       expect(row.querySelector('.record-chevron')).toBeTruthy()
     })
@@ -339,7 +389,7 @@ describe('ClearDues mobile interactions', () => {
     expect(summaryCard.querySelector('.debt-summary-footer')?.textContent).toContain('已还 ¥25.00')
     expect(summaryCard.querySelector('.compact-progress > span')?.textContent).toBe('25%')
     expect(summaryCard.querySelector('.compact-progress .progress-track div')?.getAttribute('style')).toContain('25%')
-    expect(within(summaryCard).queryByRole('button', { name: /去还款|去收款/ })).toBeNull()
+    expect(within(summaryCard).getByRole('button', { name: '去还款' })).toBeTruthy()
   })
 
   it('keeps the reference card typography, progress alignment, and row text colors explicit', () => {
@@ -514,10 +564,14 @@ describe('ClearDues mobile interactions', () => {
     prior.setDate(prior.getDate() - 1)
     const priorDate = `${prior.getFullYear()}-${String(prior.getMonth() + 1).padStart(2, '0')}-${String(prior.getDate()).padStart(2, '0')}`
     const { user } = renderApp([debt('d1', { occurredDate: priorDate, initialAmountCents: 36500, annualInterestRateBps: 10000 })])
-    expect(await screen.findByText(/年利率 100%/)).toBeTruthy()
+    await screen.findByText('全部待还')
+    expect(screen.queryByText(/年利率 100%/)).toBeNull()
     expect(screen.getAllByText(/利息/).length).toBeGreaterThan(0)
     await user.click(screen.getByRole('button', { name: '查看详情' }))
-    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记还款' }))
+    const detail = screen.getByRole('dialog', { name: '林晓' })
+    await user.click(within(detail).getByRole('button', { name: '无备注' }))
+    expect(within(detail).getByText(/年利率 100%/)).toBeTruthy()
+    await user.click(within(detail).getByRole('button', { name: '记还款' }))
     const editor = screen.getByRole('dialog', { name: '记还款' })
     const repaymentDate = editor.querySelector('input[type="date"]') as HTMLInputElement
     await user.clear(repaymentDate)
