@@ -51,6 +51,46 @@ export function remainingCents(debt: Debt, repayments: Repayment[], asOf = today
   return calculateDebtBalance(debt, repayments, asOf).totalRemainingCents
 }
 
+export interface RepaymentAllocation {
+  debtId: string
+  amountCents: number
+}
+
+export interface RepaymentAllocationPlan {
+  allocations: RepaymentAllocation[]
+  totalLimitCents: number
+  unallocatedCents: number
+  amountValid: boolean
+  valid: boolean
+}
+
+export function areRepaymentBatchDebtsValid(selectedIds: string[], debts: Debt[], userId: string): boolean {
+  if (selectedIds.length < 2 || new Set(selectedIds).size !== selectedIds.length) return false
+  const selected = selectedIds.map((id) => debts.find((debt) => debt.id === id)).filter((debt): debt is Debt => Boolean(debt))
+  if (selected.length !== selectedIds.length) return false
+  const first = selected[0]
+  const personKey = first.person.trim().toLocaleLowerCase()
+  return selected.every((debt) => !debt.deletedAt && debt.userId === userId && debt.direction === first.direction && debt.person.trim().toLocaleLowerCase() === personKey)
+}
+
+export function allocateRepaymentAmount(debts: Debt[], repayments: Repayment[], amountCents: number, repaymentDate = todayLocalDate()): RepaymentAllocationPlan {
+  const orderedDebts = debts.filter((debt) => !debt.deletedAt).slice().sort((a, b) => debtOccurredDate(a).localeCompare(debtOccurredDate(b)) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+  const today = todayLocalDate()
+  const asOf = repaymentDate > today ? today : repaymentDate
+  const balances = orderedDebts.map((debt) => calculateDebtBalance(debt, repayments, asOf).totalRemainingCents)
+  const amountValid = Number.isSafeInteger(amountCents) && amountCents > 0
+  const totalLimitCents = balances.reduce((sum, balance) => sum + balance, 0)
+  let remainingCents = amountValid ? amountCents : 0
+  const allocations = orderedDebts.map((debt, index) => {
+    const allocated = Math.min(balances[index], remainingCents)
+    remainingCents -= allocated
+    return { debtId: debt.id, amountCents: allocated }
+  })
+  const allocatedCents = allocations.reduce((sum, allocation) => sum + allocation.amountCents, 0)
+  const unallocatedCents = amountValid ? Math.max(0, amountCents - allocatedCents) : 0
+  return { allocations, totalLimitCents, unallocatedCents, amountValid, valid: amountValid && unallocatedCents === 0 }
+}
+
 export function calculateStats(debts: Debt[], repayments: Repayment[], month = new Date(), now = new Date()): LedgerStats {
   const activeDebts = debts.filter((item) => !item.deletedAt)
   const active = activeRepayments(repayments)

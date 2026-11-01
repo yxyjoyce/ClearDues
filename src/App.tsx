@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDownLeft, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Cloud, CloudOff, CreditCard, LogOut, Moon, Pencil, Plus, ReceiptText, RefreshCw, Settings, Sun, Trash2, UserRound, Users, Wallet, X } from 'lucide-react'
-import { readLocalLedger, saveDebtOffline, saveRepaymentOffline, softDeleteOffline } from './db'
+import { readLocalLedger, saveDebtOffline, saveRepaymentOffline, saveRepaymentsOffline, softDeleteOffline } from './db'
 import { formatCents, formatYuan, parseAmountToCents } from './money'
 import { asOfForMonth, calculateDebtBalance, formatAnnualInterestRate, MAX_ANNUAL_INTEREST_RATE_BPS, parseAnnualInterestRateBps, todayLocalDate } from './interest'
-import { calculateStats, debtBalance, debtOccurredDate, defaultDebtPerson, filterDebtsByMonth, filterRepaymentsThroughMonth, repaymentBalanceLimit, remainingCents, uniqueDebtPeople } from './stats'
+import { allocateRepaymentAmount, areRepaymentBatchDebtsValid, calculateStats, debtBalance, debtOccurredDate, defaultDebtPerson, filterDebtsByMonth, filterRepaymentsThroughMonth, repaymentBalanceLimit, remainingCents, uniqueDebtPeople } from './stats'
 import { isDemoEnabled, signInWithPassword, signUpWithPassword, supabase, supabaseConfigured } from './supabase'
 import { syncLedger } from './sync'
 import type { Debt, Direction, Repayment } from './types'
@@ -11,7 +11,7 @@ import './styles.css'
 
 type Tab = 'overview' | 'bills' | 'settings'
 type Theme = 'light' | 'dark'
-type Editor = { kind: 'debt' | 'repayment'; item?: Debt | Repayment } | null
+type Editor = { kind: 'debt' | 'repayment'; item?: Debt | Repayment; debtIds?: string[] } | null
 type AuthUser = { id: string; email: string | null }
 type DebtGroup = { key: string; person: string; direction: Direction; debts: Debt[]; remaining: number; paid: number; total: number; progress: number; interestRemaining: number; accruedInterest: number; asOf: string }
 type DetailOrigin = 'overview' | 'bills'
@@ -135,9 +135,16 @@ export default function App() {
       setSyncMessage('退出登录失败，请检查网络后重试。')
     }
   }
-  async function saveEditor(item: Debt | Repayment) {
-    if (item.id.startsWith('demo-')) return
-    if ('person' in item) { await saveDebtOffline(item); setDebts((current) => [...current.filter((row) => row.id !== item.id), item]) } else { await saveRepaymentOffline(item); setRepayments((current) => [...current.filter((row) => row.id !== item.id), item]) }
+  async function saveEditor(item: Debt | Repayment | Repayment[]) {
+    if (Array.isArray(item)) {
+      if (!item.length || item.some((row) => row.id.startsWith('demo-'))) return
+      await saveRepaymentsOffline(item)
+      const savedIds = new Set(item.map((row) => row.id))
+      setRepayments((current) => [...current.filter((row) => !savedIds.has(row.id)), ...item])
+    } else {
+      if (item.id.startsWith('demo-')) return
+      if ('person' in item) { await saveDebtOffline(item); setDebts((current) => [...current.filter((row) => row.id !== item.id), item]) } else { await saveRepaymentOffline(item); setRepayments((current) => [...current.filter((row) => row.id !== item.id), item]) }
+    }
     if (supabase && user) { if (typeof navigator === 'undefined' || navigator.onLine) void syncNow(); else setSyncMessage('当前离线，修改将暂存本地') }
   }
   async function remove(item: Debt | Repayment): Promise<boolean> {
@@ -170,7 +177,7 @@ export default function App() {
     {tab === 'settings' && <header className="section-topbar settings-topbar"><h1>设置</h1><div className="settings-brand"><span aria-hidden="true"><Wallet size={14} /></span><strong>ClearDues</strong></div></header>}
     <main key={tab} className="page-content tab-transition">{tab === 'overview' && <Overview groups={groups} debts={monthDebts} stats={stats} month={selectedMonth} repayments={periodRepayments} asOf={selectedAsOf} onEdit={(item) => { setDetailKey(null); setEditor({ kind: 'debt', item }) }} onOpenDetails={(key) => openDetails(key, 'overview')} onRepay={openRepaymentGroup} />}{tab === 'bills' && <Bills groups={groups} onOpenDetails={(key) => openDetails(key, 'bills')} />}{tab === 'settings' && <SettingsPanel email={user?.email ?? null} authenticated={Boolean(user)} demo={isDemoEnabled && !user} theme={theme} setTheme={setTheme} syncing={syncing} syncMessage={syncMessage} configured={supabaseConfigured} onSyncNow={syncNow} onSignOut={signOut} />}</main>
     <div className="bottom-dock"><div className="bottom-actions"><button className="add-debt-button" onClick={() => openNew('debt')}><Plus size={18} />新增欠款</button></div><nav className="bottom-nav" aria-label="主导航"><button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><CreditCard size={19} /><span>总览</span></button><button className={tab === 'bills' ? 'active' : ''} onClick={() => setTab('bills')}><ReceiptText size={19} /><span>账单</span></button><button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}><Settings size={19} /><span>设置</span></button></nav></div>
-    {repaymentChoices && <RepaymentChoiceModal group={repaymentChoices} repayments={visibleRepayments} onClose={() => setRepaymentChoices(null)} onChoose={(debt) => { setRepaymentChoices(null); openRepayment(debt) }} />}{editor && <EditorModal key={`${editor.kind}:${editor.item?.id ?? 'new'}`} editor={editor} userId={userId} debts={visibleDebts} repayments={visibleRepayments} onSave={saveEditor} onDelete={remove} onClose={() => setEditor(null)} />}{detailGroup && <DebtDetailModal group={detailGroup} repayments={periodRepayments} returnLabel={detailOrigin === 'bills' ? '返回账单' : '返回总览'} onClose={() => setDetailKey(null)} onEditDebt={(debt) => { setDetailKey(null); setEditor({ kind: 'debt', item: debt }) }} onDeleteDebt={remove} onAddRepayment={openRepaymentGroup} onEditRepayment={(item) => { setDetailKey(null); setEditor({ kind: 'repayment', item }) }} />}
+    {repaymentChoices && <RepaymentChoiceModal group={repaymentChoices} repayments={visibleRepayments} onClose={() => setRepaymentChoices(null)} onChoose={(selected) => { setRepaymentChoices(null); if (selected.length === 1) openRepayment(selected[0]); else setEditor({ kind: 'repayment', debtIds: selected.map((item) => item.id) }) }} />}{editor && <EditorModal key={`${editor.kind}:${editor.item?.id ?? 'new'}:${editor.debtIds?.join(',') ?? ''}`} editor={editor} userId={userId} debts={visibleDebts} repayments={visibleRepayments} onSave={saveEditor} onDelete={remove} onClose={() => setEditor(null)} />}{detailGroup && <DebtDetailModal group={detailGroup} repayments={periodRepayments} returnLabel={detailOrigin === 'bills' ? '返回账单' : '返回总览'} onClose={() => setDetailKey(null)} onEditDebt={(debt) => { setDetailKey(null); setEditor({ kind: 'debt', item: debt }) }} onDeleteDebt={remove} onAddRepayment={openRepaymentGroup} onEditRepayment={(item) => { setDetailKey(null); setEditor({ kind: 'repayment', item }) }} />}
   </div>
 }
 
@@ -237,17 +244,17 @@ function AnimatedLayer({ className, role, onClose, duration = 180, children }: {
   return <div className={`${className}${closing ? ' is-closing' : ''}`} role={role}>{children(requestClose, closing)}</div>
 }
 
-export function RepaymentChoiceModal({ group, repayments, onClose, onChoose }: { group: DebtGroup; repayments: Repayment[]; onClose: () => void; onChoose: (debt: Debt) => void }) {
+export function RepaymentChoiceModal({ group, repayments, onClose, onChoose }: { group: DebtGroup; repayments: Repayment[]; onClose: () => void; onChoose: (debts: Debt[]) => void }) {
   const openDebts = group.debts.filter((debt) => calculateDebtBalance(debt, repayments, group.asOf).totalRemainingCents > 0)
-  const [selectedId, setSelectedId] = useState(openDebts[0]?.id ?? '')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(openDebts[0] ? [openDebts[0].id] : []))
   const submitted = useRef(false)
-  const selectedDebt = openDebts.find((debt) => debt.id === selectedId)
+  const selectedDebts = openDebts.filter((debt) => selectedIds.has(debt.id))
   function continueToRepayment() {
-    if (submitted.current || !selectedDebt) return
+    if (submitted.current || !selectedDebts.length) return
     submitted.current = true
-    onChoose(selectedDebt)
+    onChoose(selectedDebts)
   }
-  return <AnimatedLayer className="scrim" role="presentation" onClose={onClose} duration={180}>{(requestClose, closing) => <div className="modal-card choice-modal" role="dialog" aria-modal="true" aria-labelledby="choice-title" inert={closing}><div className="sheet-handle" aria-hidden="true" /><div className="sheet-title"><div><h2 id="choice-title">{group.direction === 'owe' ? `给${group.person}还款` : `向${group.person}收款`}</h2><p>选择一笔欠款</p></div><button type="button" onClick={requestClose} aria-label="关闭"><X size={20} /></button></div>{openDebts.length ? <><div className="choice-list" role="radiogroup" aria-label="选择一笔欠款">{openDebts.map((debt) => { const balance = calculateDebtBalance(debt, repayments, group.asOf).totalRemainingCents; const selected = selectedId === debt.id; const index = openDebts.findIndex((item) => item.id === debt.id); return <button type="button" role="radio" aria-checked={selected} tabIndex={selected ? 0 : -1} className={`choice-row${selected ? ' selected' : ''}`} key={debt.id} onClick={() => setSelectedId(debt.id)} onKeyDown={(event) => { if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return; event.preventDefault(); const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? openDebts.length - 1 : (index + (event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : -1) + openDebts.length) % openDebts.length; setSelectedId(openDebts[nextIndex].id); (event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[nextIndex])?.focus() }}><span className="choice-copy"><strong>{debt.notes || '无备注'}</strong><small>{recordDate(debt).replaceAll('-', '.')}</small></span><span className="choice-balance"><strong>{formatYuan(balance)}</strong><small>{group.direction === 'owe' ? '待还金额' : '待收金额'}</small></span><span className="choice-radio" aria-hidden="true" /></button> })}</div><div className="choice-footer"><p>已选：<strong>{selectedDebt?.notes || '无备注'}</strong></p><button type="button" className="primary-button full" disabled={!selectedDebt || submitted.current || closing} onClick={continueToRepayment}>下一步 <ChevronRight size={18} /></button></div></> : <div className="choice-empty" role="status"><p>这些欠款已结清，无需再记录{group.direction === 'owe' ? '还款' : '收款'}。</p><button className="outline-button" type="button" onClick={requestClose}>关闭</button></div>}</div>}</AnimatedLayer>
+  return <AnimatedLayer className="scrim" role="presentation" onClose={onClose} duration={180}>{(requestClose, closing) => <div className="modal-card choice-modal" role="dialog" aria-modal="true" aria-labelledby="choice-title" inert={closing}><div className="sheet-handle" aria-hidden="true" /><div className="sheet-title"><div><h2 id="choice-title">{group.direction === 'owe' ? `给${group.person}还款` : `向${group.person}收款`}</h2><p>选择欠款（可多选）</p></div><button type="button" onClick={requestClose} aria-label="关闭"><X size={20} /></button></div>{openDebts.length ? <><div className="choice-list" role="group" aria-label="选择欠款">{openDebts.map((debt) => { const balance = calculateDebtBalance(debt, repayments, group.asOf).totalRemainingCents; const selected = selectedIds.has(debt.id); return <button type="button" role="checkbox" aria-checked={selected} className={`choice-row${selected ? ' selected' : ''}`} key={debt.id} onClick={() => setSelectedIds((current) => { const next = new Set(current); if (next.has(debt.id)) next.delete(debt.id); else next.add(debt.id); return next })}><span className="choice-copy"><strong title={debt.notes || '无备注'}>{debt.notes || '无备注'}</strong><small>{recordDate(debt).replaceAll('-', '.')}</small></span><span className="choice-balance"><strong>{formatYuan(balance)}</strong><small>{group.direction === 'owe' ? '待还金额' : '待收金额'}</small></span><span className="choice-checkbox" aria-hidden="true" /></button> })}</div><div className="choice-footer"><p>已选 {selectedDebts.length} 笔：<strong title={selectedDebts.map((debt) => debt.notes || '无备注').join('、')}>{selectedDebts.map((debt) => debt.notes || '无备注').join('、') || '请选择欠款'}</strong></p><button type="button" className="primary-button full" disabled={!selectedDebts.length || submitted.current || closing} onClick={continueToRepayment}>下一步 <ChevronRight size={18} /></button></div></> : <div className="choice-empty" role="status"><p>这些欠款已结清，无需再记录{group.direction === 'owe' ? '还款' : '收款'}。</p><button className="outline-button" type="button" onClick={requestClose}>关闭</button></div>}</div>}</AnimatedLayer>
 }
 
 function DebtDetailModal({ group, repayments, returnLabel, onClose, onEditDebt, onDeleteDebt, onAddRepayment, onEditRepayment }: { group: DebtGroup; repayments: Repayment[]; returnLabel: string; onClose: () => void; onEditDebt: (debt: Debt) => void; onDeleteDebt: (item: Debt) => Promise<boolean>; onAddRepayment: (group: DebtGroup) => void; onEditRepayment: (repayment: Repayment) => void }) {
@@ -282,7 +289,7 @@ function defaultInterestForPerson(debts: Debt[], person: string) {
   return latest?.annualInterestRateBps != null ? { hasInterest: true, annualInterestRate: formatAnnualInterestRate(latest.annualInterestRateBps) } : { hasInterest: false, annualInterestRate: '' }
 }
 
-function EditorModal({ editor, userId, debts, repayments, onSave, onDelete, onClose }: { editor: Exclude<Editor, null>; userId: string; debts: Debt[]; repayments: Repayment[]; onSave: (item: Debt | Repayment) => Promise<void>; onDelete: (item: Debt | Repayment) => Promise<boolean>; onClose: () => void }) {
+function EditorModal({ editor, userId, debts, repayments, onSave, onDelete, onClose }: { editor: Exclude<Editor, null>; userId: string; debts: Debt[]; repayments: Repayment[]; onSave: (item: Debt | Repayment | Repayment[]) => Promise<void>; onDelete: (item: Debt | Repayment) => Promise<boolean>; onClose: () => void }) {
   const debt = editor.kind === 'debt' ? editor.item as Debt | undefined : undefined
   const repayment = editor.kind === 'repayment' ? editor.item as Repayment | undefined : undefined
   const existingPeople = uniqueDebtPeople(debts)
@@ -303,6 +310,7 @@ function EditorModal({ editor, userId, debts, repayments, onSave, onDelete, onCl
   const [notes, setNotes] = useState(debt?.notes ?? repayment?.notes ?? '')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const closeRef = useRef<() => void>(() => undefined)
   const hasExistingRecord = Boolean(debt?.id || repayment?.id)
   const repaymentsWithoutCurrent = repayments.filter((row) => row.id !== repayment?.id)
@@ -312,12 +320,16 @@ function EditorModal({ editor, userId, debts, repayments, onSave, onDelete, onCl
     return calculateDebtBalance(item, repaymentsWithoutCurrent, limitDate).totalRemainingCents
   }
   const repaymentOptions = debts.filter((item) => repaymentLimit(item) > 0 || item.id === repayment?.debtId)
-  const selectedRepaymentDebt = debts.find((item) => item.id === debtId)
+  const selectedBatchDebts = editor.kind === 'repayment' && !repayment?.id ? (editor.debtIds ?? []).map((id) => debts.find((item) => item.id === id)).filter((item): item is Debt => Boolean(item)) : []
+  const isBatchRepayment = editor.kind === 'repayment' && !repayment?.id && (editor.debtIds?.length ?? 0) > 1
+  const selectedRepaymentDebt = isBatchRepayment ? selectedBatchDebts[0] : debts.find((item) => item.id === debtId)
   const repaymentLabel = selectedRepaymentDebt?.direction === 'owed' ? '收款' : '还款'
   const editorTitle = hasExistingRecord ? '编辑记录' : editor.kind === 'debt' ? '新增欠款' : `记${repaymentLabel}`
-  const repaymentIsLocked = editor.kind === 'repayment' && !repayment?.id && Boolean(repayment?.debtId)
+  const repaymentIsLocked = editor.kind === 'repayment' && !repayment?.id && (Boolean(repayment?.debtId) || isBatchRepayment)
   const repaymentAsOf = date > today() ? today() : date
   const selectedBalance = selectedRepaymentDebt ? calculateDebtBalance(selectedRepaymentDebt, repaymentsWithoutCurrent, repaymentAsOf, repayment?.id ? { excludeRepaymentId: repayment.id, throughRepayment: { id: repayment.id, date, updatedAt: repayment.updatedAt } } : {}) : null
+  const batchPlan = isBatchRepayment ? allocateRepaymentAmount(selectedBatchDebts, repaymentsWithoutCurrent, parseAmountToCents(amount) ?? 0, date) : null
+  const batchBalance = isBatchRepayment ? selectedBatchDebts.reduce((total, item) => { const balance = calculateDebtBalance(item, repaymentsWithoutCurrent, repaymentAsOf); return { principal: total.principal + balance.principalRemainingCents, interest: total.interest + balance.interestRemainingCents } }, { principal: 0, interest: 0 }) : null
   const inheritedInterestDebt = debts.filter((item) => !item.deletedAt && item.person.trim().toLocaleLowerCase() === person.trim().toLocaleLowerCase()).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
   const showInheritedInterest = !debt && !rateTouched && hasInterest && inheritedInterestDebt?.direction === direction && inheritedInterestDebt.annualInterestRateBps != null && parseAnnualInterestRateBps(annualInterestRate) === inheritedInterestDebt.annualInterestRateBps
 
@@ -329,22 +341,35 @@ function EditorModal({ editor, userId, debts, repayments, onSave, onDelete, onCl
   }
   function selectPerson(nextPerson: string) { setPerson(nextPerson); applyPersonDefaults(nextPerson) }
   async function submit(event: React.FormEvent) {
-    event.preventDefault(); if (submitting) return; setSubmitting(true); setError('')
+    event.preventDefault(); if (submittingRef.current) return; submittingRef.current = true; setSubmitting(true); setError('')
+    if (isBatchRepayment) {
+      const selectedIds = editor.debtIds ?? []
+      const sameGroup = areRepaymentBatchDebtsValid(selectedIds, debts, userId)
+      const cents = parseAmountToCents(amount)
+      const plan = cents === null ? null : allocateRepaymentAmount(selectedBatchDebts, repaymentsWithoutCurrent, cents, date)
+      if (!sameGroup) { setError('所选欠款已变更，请重新选择。'); setSubmitting(false); submittingRef.current = false; return }
+      if (!date || !plan?.amountValid) { setError(`请输入有效的${repaymentLabel}金额和日期。`); setSubmitting(false); submittingRef.current = false; return }
+      if (!plan.valid) { setError(`${repaymentLabel}金额不能超过所选欠款在该日期的剩余总额。`); setSubmitting(false); submittingRef.current = false; return }
+      const items = plan.allocations.filter((allocation) => allocation.amountCents > 0).map((allocation) => makeRepayment(userId, { debtId: allocation.debtId, amount: formatCents(allocation.amountCents), date, notes }))
+      if (!items.length || items.some((item) => !item)) { setError('没有可保存的还款金额。'); setSubmitting(false); submittingRef.current = false; return }
+      try { await onSave(items as Repayment[]); closeRef.current() } catch { setError('保存失败，请稍后重试。'); setSubmitting(false); submittingRef.current = false }
+      return
+    }
     const item = editor.kind === 'debt' ? makeDebt(userId, { person, direction, amount, annualInterestRate, hasInterest, occurredDate, dueDate: hasDueDate ? dueDate : '', notes }, debt) : makeRepayment(userId, { debtId, amount, date, notes }, repayment)
-    if (!item) { setError(editor.kind === 'debt' ? hasInterest ? '请填写对方、金额、发生日期和正确的年利率。' : '请填写对方、金额和发生日期。' : '请填写债务、金额和日期。'); setSubmitting(false); return }
+    if (!item) { setError(editor.kind === 'debt' ? hasInterest ? '请填写对方、金额、发生日期和正确的年利率。' : '请填写对方、金额和发生日期。' : '请填写债务、金额和日期。'); setSubmitting(false); submittingRef.current = false; return }
     if ('debtId' in item) {
       const target = debts.find((row) => row.id === item.debtId)
-      if (!target || item.amountCents > repaymentLimit(target)) { setError(`${repaymentLabel}金额不能超过该笔债务的剩余金额。`); setSubmitting(false); return }
+      if (!target || item.amountCents > repaymentLimit(target)) { setError(`${repaymentLabel}金额不能超过该笔债务的剩余金额。`); setSubmitting(false); submittingRef.current = false; return }
     }
-    try { await onSave(item); closeRef.current() } catch { setError('保存失败，请稍后重试。'); setSubmitting(false) }
+    try { await onSave(item); closeRef.current() } catch { setError('保存失败，请稍后重试。'); setSubmitting(false); submittingRef.current = false }
   }
   async function deleteCurrent(requestClose: () => void) {
-    if (submitting || (!debt && !repayment)) return
-    setSubmitting(true)
+    if (submittingRef.current || (!debt && !repayment)) return
+    submittingRef.current = true; setSubmitting(true)
     try {
       const deleted = await onDelete((debt || repayment)!)
-      if (deleted) requestClose(); else setSubmitting(false)
-    } catch { setError('删除失败，请稍后重试。'); setSubmitting(false) }
+      if (deleted) requestClose(); else { setSubmitting(false); submittingRef.current = false }
+    } catch { setError('删除失败，请稍后重试。'); setSubmitting(false); submittingRef.current = false }
   }
 
   return <AnimatedLayer className="scrim" role="presentation" onClose={onClose} duration={180}>{(requestClose, closing) => { closeRef.current = requestClose; return <div className="modal-card editor-modal" role="dialog" aria-modal="true" aria-labelledby="editor-title" inert={closing}><div className="sheet-handle" aria-hidden="true" /><div className={`sheet-title${editor.kind === 'repayment' ? ' repayment-editor-heading' : ''}`}><h2 id="editor-title">{editorTitle}</h2><button type="button" onClick={requestClose} aria-label="关闭"><X size={20} /></button></div>{editor.kind === 'debt' ? <form className="debt-editor-form" onSubmit={submit}>
@@ -358,9 +383,10 @@ function EditorModal({ editor, userId, debts, repayments, onSave, onDelete, onCl
         <div className="interest-card"><label className="interest-card-toggle"><span>计息</span><span className="interest-switch"><input type="checkbox" aria-label="包含利息" checked={hasInterest} onChange={(event) => { setHasInterest(event.target.checked); if (!event.target.checked) setAnnualInterestRate('') }} /><span aria-hidden="true" /></span></label>{hasInterest && <label className="interest-rate-row">年利率<input aria-label="年利率" type="number" step=".01" min=".01" max={MAX_ANNUAL_INTEREST_RATE_BPS / 100} value={annualInterestRate} onChange={(event) => { setAnnualInterestRate(event.target.value); setRateTouched(true) }} placeholder="例如 5.5" required /><span>%</span><ChevronRight size={16} aria-hidden="true" /></label>}{showInheritedInterest && <small className="interest-inherited">已沿用该对象的计息设置</small>}</div>
         <label className="debt-notes-card">备注（可选）<textarea aria-label="备注" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="补充一点说明…" rows={2} /></label>
         {error && <p className="error-message">{error}</p>}<EditorFooter editor={editor} hasExistingRecord={hasExistingRecord} repaymentLabel={repaymentLabel} submitting={submitting} onDelete={() => void deleteCurrent(requestClose)} /></form> : <form className="repayment-editor-form" onSubmit={submit}>
-        <div className="repayment-context"><span className="repayment-context-icon"><Wallet size={24} /></span><span className="repayment-context-copy"><strong>{selectedRepaymentDebt?.person ?? '选择欠款'}</strong><small>{selectedRepaymentDebt ? `${selectedRepaymentDebt.notes || '无备注'} · ${recordDate(selectedRepaymentDebt).replaceAll('-', '.')}` : '未选择债务'}</small></span></div>
+        <div className={`repayment-context${isBatchRepayment ? ' repayment-batch-context' : ''}`}><span className="repayment-context-icon"><Wallet size={24} /></span>{isBatchRepayment ? <div className="repayment-context-copy"><strong>{selectedRepaymentDebt?.person} · {selectedBatchDebts.length} 笔</strong><div className="repayment-batch-debts" tabIndex={0} aria-label="所选欠款完整备注和发生日期">{selectedBatchDebts.map((item) => <p key={item.id}>{item.notes || '无备注'} · {recordDate(item).replaceAll('-', '.')}</p>)}</div></div> : <span className="repayment-context-copy"><strong>{selectedRepaymentDebt?.person ?? '选择欠款'}</strong><small>{selectedRepaymentDebt ? `${selectedRepaymentDebt.notes || '无备注'} · ${recordDate(selectedRepaymentDebt).replaceAll('-', '.')}` : '未选择债务'}</small></span>}</div>
         {!repaymentIsLocked && <label className="repayment-debt-select">归属欠款<select aria-label="归属欠款" value={debtId} onChange={(event) => setDebtId(event.target.value)}>{repaymentOptions.map((item) => <option value={item.id} key={item.id}>{item.person} · {recordDate(item).replaceAll('-', '.')} · {item.notes || '无备注'}</option>)}</select></label>}
-        <section className="repayment-amount-card" aria-label={`本次${repaymentLabel}`}><label className="repayment-amount-label" htmlFor="repayment-amount">本次{repaymentLabel}</label><div className="repayment-amount-entry"><span className="input-prefix repayment-amount-input"><span>¥</span><input id="repayment-amount" aria-label={`${repaymentLabel}金额（元）`} value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" placeholder="0.00" required /></span>{selectedRepaymentDebt && <button type="button" className="settle-all-button" aria-label={`${repaymentLabel === '还款' ? '全部还清' : '全部收齐'} ${formatCents(repaymentLimit(selectedRepaymentDebt))} 元`} disabled={repaymentLimit(selectedRepaymentDebt) <= 0} onClick={() => setAmount(formatCents(repaymentLimit(selectedRepaymentDebt)))}>{repaymentLabel === '还款' ? '全部还清' : '全部收齐'}</button>}</div>{selectedRepaymentDebt && <p className="repayment-current-balance">当前待{repaymentLabel === '还款' ? '还' : '收'} {formatYuan(repaymentLimit(selectedRepaymentDebt))}</p>}{selectedBalance && <p className="repayment-balance">本金 {formatYuan(selectedBalance.principalRemainingCents)} · {repaymentLabel === '还款' ? '未付' : '待收'}利息 {formatYuan(selectedBalance.interestRemainingCents)}</p>}</section>
+        <section className="repayment-amount-card" aria-label={`本次${repaymentLabel}`}><label className="repayment-amount-label" htmlFor="repayment-amount">{isBatchRepayment ? `${selectedBatchDebts.length} 笔总${repaymentLabel}金额` : `本次${repaymentLabel}`}</label><div className="repayment-amount-entry"><span className="input-prefix repayment-amount-input"><span>¥</span><input id="repayment-amount" aria-label={`${repaymentLabel}金额（元）`} value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" placeholder="0.00" required /></span>{selectedRepaymentDebt && <button type="button" className="settle-all-button" aria-label={`${repaymentLabel === '还款' ? '全部还清' : '全部收齐'} ${formatCents(isBatchRepayment ? batchPlan?.totalLimitCents ?? 0 : repaymentLimit(selectedRepaymentDebt))} 元`} disabled={(isBatchRepayment ? batchPlan?.totalLimitCents ?? 0 : repaymentLimit(selectedRepaymentDebt)) <= 0} onClick={() => setAmount(formatCents(isBatchRepayment ? batchPlan?.totalLimitCents ?? 0 : repaymentLimit(selectedRepaymentDebt)))}>{repaymentLabel === '还款' ? '全部还清' : '全部收齐'}</button>}</div>{selectedRepaymentDebt && <p className="repayment-current-balance">当前待{repaymentLabel === '还款' ? '还' : '收'} {formatYuan(isBatchRepayment ? batchPlan?.totalLimitCents ?? 0 : repaymentLimit(selectedRepaymentDebt))}{isBatchRepayment ? `（${selectedBatchDebts.length} 笔合计）` : ''}</p>}{isBatchRepayment && batchBalance ? <p className="repayment-balance">本金 {formatYuan(batchBalance.principal)} · {repaymentLabel === '还款' ? '未付' : '待收'}利息 {formatYuan(batchBalance.interest)}</p> : selectedBalance && <p className="repayment-balance">本金 {formatYuan(selectedBalance.principalRemainingCents)} · {repaymentLabel === '还款' ? '未付' : '待收'}利息 {formatYuan(selectedBalance.interestRemainingCents)}</p>}</section>
+        {isBatchRepayment && <section className="repayment-allocation" aria-label={`${repaymentLabel}分配预览`}><strong>逐笔分配</strong><p className="repayment-allocation-hint">按欠款发生日期从早到晚抵扣</p>{batchPlan?.allocations.map((allocation) => { const item = selectedBatchDebts.find((debtItem) => debtItem.id === allocation.debtId); return item ? <div key={allocation.debtId}><span>{item.notes || '无备注'} · {recordDate(item).replaceAll('-', '.')}</span><strong>{formatYuan(allocation.amountCents)}</strong></div> : null })}{batchPlan && !batchPlan.valid && batchPlan.amountValid && <p className="error-message">超过所选欠款的剩余总额 {formatYuan(batchPlan.totalLimitCents)}。</p>}</section>}
         <label className="repayment-date-row"><CalendarDays size={20} aria-hidden="true" /><span>{repaymentLabel}日期</span><input aria-label={`${repaymentLabel}日期`} type="date" value={date} onChange={(event) => setDate(event.target.value)} required /><ChevronRight size={16} aria-hidden="true" /></label>
         <label className="repayment-notes-card">备注（选填）<textarea aria-label="备注" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="写点说明…" rows={2} /></label>
         {error && <p className="error-message">{error}</p>}<EditorFooter editor={editor} hasExistingRecord={hasExistingRecord} repaymentLabel={repaymentLabel} submitting={submitting} onDelete={() => void deleteCurrent(requestClose)} /></form>}</div> } }</AnimatedLayer>

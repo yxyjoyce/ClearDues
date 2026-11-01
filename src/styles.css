@@ -260,6 +260,10 @@ button { cursor: pointer; }
 .subtle-delete { min-height: 38px; color: var(--muted); background: transparent; font-size: 13px; font-weight: 700; }
 .repayment-context { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 5px 0 2px; }
 .repayment-editor-form .repayment-context { min-height: 80px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--yellow) 5%, var(--surface)); }
+.repayment-editor-form .repayment-batch-context { align-items: flex-start; }
+.repayment-batch-debts { display: grid; gap: 4px; max-height: 112px; min-width: 0; overflow-y: auto; overscroll-behavior: contain; }
+.repayment-batch-debts:focus-visible { outline: 2px solid var(--yellow-dark); outline-offset: 2px; }
+.repayment-batch-debts p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
 .repayment-context-icon { display: grid; place-items: center; width: 56px; height: 56px; flex: 0 0 auto; color: var(--emphasis); border-radius: 50%; background: #fff1b8; }
 .theme-dark .repayment-context-icon { background: #4a4018; }
 .repayment-context-copy { display: grid; min-width: 0; gap: 4px; }
@@ -277,6 +281,13 @@ button { cursor: pointer; }
 .settle-all-button:disabled { cursor: not-allowed; opacity: .6; }
 .repayment-current-balance, .repayment-balance { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 .repayment-balance { overflow-wrap: anywhere; }
+.repayment-allocation { display: grid; gap: 7px; min-width: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.repayment-allocation > strong { font-size: 14px; }
+.repayment-allocation-hint { margin: -4px 0 0; color: var(--muted); font-size: 12px; }
+.repayment-allocation > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; font-size: 13px; }
+.repayment-allocation > div span { min-width: 0; color: var(--muted); overflow-wrap: anywhere; }
+.repayment-allocation > div strong { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.repayment-allocation > .error-message { margin: 0; }
 .repayment-date-row { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 70px; margin: 0; padding: 0 14px; color: var(--ink); border: 1px solid var(--line); border-radius: 14px; background: var(--surface); font-size: 14px; font-weight: 500; }
 .repayment-date-row > svg:first-child { flex: 0 0 20px; }
 .repayment-date-row > span { flex: 0 0 auto; }
@@ -286,19 +297,21 @@ button { cursor: pointer; }
 .repayment-notes-card textarea { min-width: 0; min-height: 56px; margin-top: 2px; border: 0; background: var(--surface-muted); }
 .repayment-debt-select { min-width: 0; }
 .repayment-editor-form .editor-footer .primary-button { min-height: 52px; border-radius: 13px; font-size: 16px; }
-.choice-list { display: grid; flex: 0 1 auto; align-content: start; gap: 8px; min-height: 0; overflow-y: auto; }
-.choice-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto) 36px; align-items: center; gap: 10px; width: 100%; min-width: 0; min-height: 72px; padding: 11px 12px; color: var(--ink); text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.choice-list { display: grid; flex: 1 1 auto; grid-auto-rows: max-content; align-content: start; gap: 8px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.choice-row { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(0, auto) 36px; align-items: center; align-self: start; gap: 10px; width: 100%; min-width: 0; min-height: 72px; flex: 0 0 auto; padding: 11px 12px; color: var(--ink); text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .choice-row.selected { border-color: var(--yellow-dark); background: color-mix(in srgb, var(--yellow) 15%, var(--surface)); }
 .choice-row strong { min-width: 0; max-width: 100%; overflow-wrap: anywhere; font-size: 15px; }
 .choice-copy, .choice-balance { display: grid; min-width: 0; gap: 4px; }
+.choice-copy strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 .choice-copy small, .choice-balance small { min-width: 0; color: var(--muted); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+.choice-copy small { white-space: nowrap; }
 .choice-balance { justify-items: end; text-align: right; }
 .choice-balance strong { text-align: right; font-variant-numeric: tabular-nums; }
-.choice-radio { display: grid; place-items: center; width: 32px; height: 32px; justify-self: end; border: 1.5px solid var(--muted); border-radius: 50%; }
-.choice-row.selected .choice-radio { border-color: var(--emphasis); background: var(--emphasis); }
-.choice-row.selected .choice-radio::after { width: 14px; height: 8px; border-bottom: 2px solid var(--inverse); border-left: 2px solid var(--inverse); transform: translateY(-1px) rotate(-45deg); content: ""; }
-.choice-footer { position: sticky; bottom: calc(-20px - env(safe-area-inset-bottom, 0px)); margin: auto -16px calc(-20px - env(safe-area-inset-bottom, 0px)); padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--surface) 96%, transparent); }
-.choice-footer p { margin: 0 0 10px; padding-top: 10px; color: var(--muted); border-top: 1px solid var(--line); font-size: 14px; }
+.choice-checkbox { display: grid; place-items: center; width: 28px; height: 28px; justify-self: end; border: 1.5px solid var(--muted); border-radius: 8px; }
+.choice-row.selected .choice-checkbox { border-color: var(--emphasis); background: var(--emphasis); }
+.choice-row.selected .choice-checkbox::after { width: 13px; height: 7px; border-bottom: 2px solid var(--inverse); border-left: 2px solid var(--inverse); transform: translateY(-1px) rotate(-45deg); content: ""; }
+.choice-footer { position: sticky; bottom: calc(-20px - env(safe-area-inset-bottom, 0px)); flex: 0 0 auto; margin: auto -16px calc(-20px - env(safe-area-inset-bottom, 0px)); padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--surface) 96%, transparent); }
+.choice-footer p { margin: 0 0 10px; padding-top: 10px; color: var(--muted); border-top: 1px solid var(--line); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .choice-footer strong { color: var(--ink); }
 .choice-footer .primary-button { min-height: 52px; border-radius: 13px; font-size: 16px; }
 .choice-footer .primary-button:disabled { cursor: not-allowed; opacity: .6; }

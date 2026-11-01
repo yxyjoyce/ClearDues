@@ -44,6 +44,15 @@ export async function saveRepaymentOffline(repayment: Repayment): Promise<void> 
   })
 }
 
+export async function saveRepaymentsOffline(repayments: Repayment[]): Promise<void> {
+  if (!repayments.length) throw new Error('At least one repayment is required.')
+  const operations: OutboxOperation[] = repayments.map((repayment) => ({ id: crypto.randomUUID(), entity: 'repayment', entityId: repayment.id, action: 'upsert', payload: repayment, updatedAt: repayment.updatedAt, attempts: 0 }))
+  await ledgerDb.transaction('rw', ledgerDb.repayments, ledgerDb.outbox, async () => {
+    await ledgerDb.repayments.bulkPut(repayments)
+    await ledgerDb.outbox.bulkPut(operations)
+  })
+}
+
 export async function softDeleteOffline(entity: 'debt' | 'repayment', id: string, updatedAt: string): Promise<void> {
   if (entity === 'debt') {
     await ledgerDb.transaction('rw', ledgerDb.debts, ledgerDb.outbox, async () => {

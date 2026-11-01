@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   syncLedger: vi.fn(async () => ({ synced: true, pending: 0 }) as { synced: boolean; pending: number; error?: string }),
   saveDebtOffline: vi.fn(),
   saveRepaymentOffline: vi.fn(),
+  saveRepaymentsOffline: vi.fn(),
   softDeleteOffline: vi.fn(),
 }))
 
@@ -24,6 +25,7 @@ vi.mock('../src/db', () => ({
   readLocalLedger: vi.fn(async () => ({ debts: mocks.ledger.debts, repayments: mocks.ledger.repayments })),
   saveDebtOffline: mocks.saveDebtOffline,
   saveRepaymentOffline: mocks.saveRepaymentOffline,
+  saveRepaymentsOffline: mocks.saveRepaymentsOffline,
   softDeleteOffline: mocks.softDeleteOffline,
 }))
 
@@ -57,6 +59,7 @@ function renderApp(debts: Debt[], repayments: Repayment[] = []) {
 beforeEach(() => {
   mocks.saveDebtOffline.mockReset()
   mocks.saveRepaymentOffline.mockReset()
+  mocks.saveRepaymentsOffline.mockReset()
   mocks.softDeleteOffline.mockReset()
   mocks.supabaseConfigured = false
   mocks.demoEnabled = true
@@ -164,20 +167,130 @@ describe('ClearDues mobile interactions', () => {
     const card = (await screen.findByText('林晓')).closest('.debt-summary-card') as HTMLElement
     await user.click(within(card).getByRole('button', { name: '去还款' }))
     const choiceDialog = screen.getByRole('dialog', { name: '给林晓还款' })
-    const choices = within(choiceDialog).getAllByRole('radio')
+    const choices = within(choiceDialog).getAllByRole('checkbox')
     expect(choices[0].getAttribute('aria-checked')).toBe('true')
     expect(choices[1].getAttribute('aria-checked')).toBe('false')
-    choices[0].focus()
-    await user.keyboard('{ArrowDown}')
+    await user.click(choices[1])
     expect(choices[1].getAttribute('aria-checked')).toBe('true')
     expect(screen.queryByRole('dialog', { name: '记还款' })).toBeNull()
     await user.click(within(choiceDialog).getByRole('button', { name: /下一步/ }))
-    expect(within(screen.getByRole('dialog', { name: '记还款' })).getByText(/第二笔/)).toBeTruthy()
+    expect(within(screen.getByRole('dialog', { name: '记还款' })).getByText('林晓 · 2 笔')).toBeTruthy()
 
     cleanup()
     renderApp([debt('settled')], [repayment('settled-repayment', { debtId: 'settled', amountCents: 10000 })])
     const settledCard = (await screen.findByText('林晓')).closest('.debt-summary-card') as HTMLElement
     expect(within(settledCard).queryByRole('button', { name: '去还款' })).toBeNull()
+  })
+
+  it('allows clearing all choices and toggling a debt with Space before continuing', async () => {
+    const { user } = renderApp([debt('d1', { notes: '第一笔' }), debt('d2', { notes: '第二笔' })])
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记还款' }))
+    const dialog = screen.getByRole('dialog', { name: '给林晓还款' })
+    const first = within(dialog).getByRole('checkbox', { name: /第一笔/ })
+    const next = within(dialog).getByRole('button', { name: /下一步/ })
+    expect((next as HTMLButtonElement).disabled).toBe(false)
+    await user.click(first)
+    expect((next as HTMLButtonElement).disabled).toBe(true)
+    const second = within(dialog).getByRole('checkbox', { name: /第二笔/ })
+    second.focus()
+    await user.keyboard(' ')
+    expect(second.getAttribute('aria-checked')).toBe('true')
+    expect((next as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('previews and saves a multi-debt total oldest-first with shared date and notes', async () => {
+    const { user } = renderApp([
+      debt('newer', { occurredDate: currentDate, initialAmountCents: 20000, notes: '较新一笔' }),
+      debt('older', { occurredDate: dateInPreviousMonth, initialAmountCents: 10000, notes: '较早一笔' }),
+    ])
+    const ids = ['batch-repayment-1', 'batch-repayment-2']
+    vi.mocked(crypto.randomUUID).mockImplementation(() => ids.shift() ?? 'unexpected-id')
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记还款' }))
+    const choice = screen.getByRole('dialog', { name: '给林晓还款' })
+    await user.click(within(choice).getByRole('checkbox', { name: /较早一笔/ }))
+    await user.click(within(choice).getByRole('button', { name: /下一步/ }))
+    const editor = screen.getByRole('dialog', { name: '记还款' })
+    const batchContext = editor.querySelector('.repayment-batch-debts') as HTMLElement
+    expect(batchContext.textContent).toContain(`较早一笔 · ${dateInPreviousMonth.replaceAll('-', '.')}`)
+    expect(batchContext.textContent).toContain(`较新一笔 · ${currentDate.replaceAll('-', '.')}`)
+    const amount = within(editor).getByRole('textbox', { name: '还款金额（元）' })
+    await user.type(amount, '150')
+    const preview = within(editor).getByRole('region', { name: '还款分配预览' })
+    const previewText = preview.textContent ?? ''
+    expect(previewText).toContain(`较早一笔 · ${dateInPreviousMonth.replaceAll('-', '.')}`)
+    expect(within(preview).getByText('¥100.00')).toBeTruthy()
+    expect(previewText).toContain(`较新一笔 · ${currentDate.replaceAll('-', '.')}`)
+    expect(within(preview).getByText('¥50.00')).toBeTruthy()
+    const paymentDate = within(editor).getByLabelText('还款日期')
+    await user.clear(paymentDate)
+    await user.type(paymentDate, currentDate)
+    await user.type(within(editor).getByRole('textbox', { name: '备注' }), '统一说明')
+    await user.click(within(editor).getByRole('button', { name: '确认还款' }))
+    await waitFor(() => expect(mocks.saveRepaymentsOffline).toHaveBeenCalledOnce())
+    const saved = mocks.saveRepaymentsOffline.mock.calls[0][0] as Repayment[]
+    expect(saved.map((item) => [item.debtId, item.amountCents])).toEqual([['older', 10000], ['newer', 5000]])
+    expect(saved.map((item) => item.id)).toEqual(['batch-repayment-1', 'batch-repayment-2'])
+    expect(new Set(saved.map((item) => item.id)).size).toBe(2)
+    expect(saved.reduce((sum, item) => sum + item.amountCents, 0)).toBe(15000)
+    expect(saved.every((item) => item.date === currentDate && item.notes === '统一说明')).toBe(true)
+    expect(mocks.saveRepaymentOffline).not.toHaveBeenCalled()
+  })
+
+  it('does not persist selected debts that receive zero from the entered total', async () => {
+    const { user } = renderApp([
+      debt('newer', { occurredDate: currentDate, initialAmountCents: 20000, notes: '较新一笔' }),
+      debt('older', { occurredDate: dateInPreviousMonth, initialAmountCents: 10000, notes: '较早一笔' }),
+    ])
+    vi.mocked(crypto.randomUUID).mockImplementation(() => 'only-positive-allocation')
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记还款' }))
+    const choice = screen.getByRole('dialog', { name: '给林晓还款' })
+    await user.click(within(choice).getByRole('checkbox', { name: /较早一笔/ }))
+    await user.click(within(choice).getByRole('button', { name: /下一步/ }))
+    const editor = screen.getByRole('dialog', { name: '记还款' })
+    await user.clear(within(editor).getByLabelText('还款日期'))
+    await user.type(within(editor).getByLabelText('还款日期'), dateInPreviousMonth)
+    const amount = within(editor).getByRole('textbox', { name: '还款金额（元）' })
+    await user.type(amount, '150')
+    await user.click(within(editor).getByRole('button', { name: '确认还款' }))
+    expect(within(editor).getByText(/不能超过所选欠款在该日期的剩余总额/)).toBeTruthy()
+    expect(mocks.saveRepaymentsOffline).not.toHaveBeenCalled()
+    await user.clear(amount)
+    await user.type(amount, '100')
+    const preview = within(editor).getByRole('region', { name: '还款分配预览' })
+    expect(within(preview).getByText('¥0.00')).toBeTruthy()
+    await user.click(within(editor).getByRole('button', { name: '确认还款' }))
+    await waitFor(() => expect(mocks.saveRepaymentsOffline).toHaveBeenCalledOnce())
+    const saved = mocks.saveRepaymentsOffline.mock.calls[0][0] as Repayment[]
+    expect(saved).toHaveLength(1)
+    expect(saved[0]).toMatchObject({ debtId: 'older', amountCents: 10000 })
+  })
+
+  it('keeps a failed multi-debt save open and retries the same batch without duplicating writes', async () => {
+    const { user } = renderApp([debt('d1', { notes: '第一笔' }), debt('d2', { notes: '第二笔' })])
+    let repaymentId = 0
+    vi.mocked(crypto.randomUUID).mockImplementation(() => `retry-r${++repaymentId}`)
+    mocks.saveRepaymentsOffline.mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记还款' }))
+    const choice = screen.getByRole('dialog', { name: '给林晓还款' })
+    await user.click(within(choice).getByRole('checkbox', { name: /第二笔/ }))
+    await user.click(within(choice).getByRole('button', { name: /下一步/ }))
+    const editor = screen.getByRole('dialog', { name: '记还款' })
+    await user.type(within(editor).getByRole('textbox', { name: '还款金额（元）' }), '120')
+    await user.click(within(editor).getByRole('button', { name: '确认还款' }))
+    expect(await within(editor).findByText('保存失败，请稍后重试。')).toBeTruthy()
+    expect(mocks.saveRepaymentsOffline).toHaveBeenCalledOnce()
+    await user.click(within(editor).getByRole('button', { name: '确认还款' }))
+    await waitFor(() => expect(mocks.saveRepaymentsOffline).toHaveBeenCalledTimes(2))
+    const retried = mocks.saveRepaymentsOffline.mock.calls[1][0] as Repayment[]
+    expect(retried.length).toBeGreaterThan(1)
+    expect(new Set(retried.map((item) => item.id)).size).toBe(retried.length)
+    expect(retried.every((item) => item.amountCents > 0)).toBe(true)
+    expect(retried.reduce((sum, item) => sum + item.amountCents, 0)).toBe(12000)
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '记还款' })).toBeNull())
   })
 
   it('keeps the debt form fields in full-width cards and retains native date inputs', async () => {
@@ -339,7 +452,7 @@ describe('ClearDues mobile interactions', () => {
     const detailDialog = screen.getByRole('dialog', { name: '林晓' })
     await user.click(within(detailDialog).getByRole('button', { name: '记还款' }))
     const choiceDialog = screen.getByRole('dialog', { name: '给林晓还款' })
-    const breakfastChoice = within(choiceDialog).getByRole('radio', { name: /早餐.*¥50\.00/ })
+    const breakfastChoice = within(choiceDialog).getByRole('checkbox', { name: /早餐.*¥50\.00/ })
     expect(breakfastChoice.getAttribute('aria-checked')).toBe('true')
     expect(within(choiceDialog).getByRole('button', { name: /下一步/ })).toBeTruthy()
     await user.click(within(choiceDialog).getByRole('button', { name: /下一步/ }))
