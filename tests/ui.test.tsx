@@ -11,6 +11,10 @@ const stylesText = readFileSync('src/styles.css', 'utf8')
 
 const mocks = vi.hoisted(() => ({
   ledger: { debts: [] as Debt[], repayments: [] as Repayment[] },
+  demoEnabled: true,
+  supabaseConfigured: false,
+  supabase: null as null | { auth: Record<string, (...args: unknown[]) => unknown> },
+  syncLedger: vi.fn(async () => ({ synced: true, pending: 0 }) as { synced: boolean; pending: number; error?: string }),
   saveDebtOffline: vi.fn(),
   saveRepaymentOffline: vi.fn(),
   softDeleteOffline: vi.fn(),
@@ -24,14 +28,14 @@ vi.mock('../src/db', () => ({
 }))
 
 vi.mock('../src/supabase', () => ({
-  isDemoEnabled: true,
-  supabaseConfigured: false,
-  supabase: null,
+  get isDemoEnabled() { return mocks.demoEnabled },
+  get supabaseConfigured() { return mocks.supabaseConfigured },
+  get supabase() { return mocks.supabase },
   signInWithPassword: vi.fn(),
   signUpWithPassword: vi.fn(),
 }))
 
-vi.mock('../src/sync', () => ({ syncLedger: vi.fn(async () => ({ synced: true, pending: 0 })) }))
+vi.mock('../src/sync', () => ({ syncLedger: mocks.syncLedger }))
 
 import App, { RepaymentChoiceModal } from '../src/App'
 
@@ -54,6 +58,10 @@ beforeEach(() => {
   mocks.saveDebtOffline.mockReset()
   mocks.saveRepaymentOffline.mockReset()
   mocks.softDeleteOffline.mockReset()
+  mocks.supabaseConfigured = false
+  mocks.demoEnabled = true
+  mocks.supabase = null
+  mocks.syncLedger.mockReset().mockResolvedValue({ synced: true, pending: 0 })
   window.localStorage.clear()
   document.documentElement.classList.remove('theme-dark')
   document.documentElement.style.colorScheme = 'light'
@@ -372,12 +380,108 @@ describe('ClearDues mobile interactions', () => {
     const { user } = renderApp([debt('d1')])
     await screen.findByText('林晓')
 
+    await user.click(screen.getByRole('button', { name: '设置' }))
     await user.click(screen.getByRole('button', { name: '暗色主题' }))
     expect(document.documentElement.classList.contains('theme-dark')).toBe(true)
     expect(window.localStorage.getItem('cleardues-theme')).toBe('dark')
     await user.click(screen.getByRole('button', { name: '亮色主题' }))
     expect(document.documentElement.classList.contains('theme-dark')).toBe(false)
     expect(window.localStorage.getItem('cleardues-theme')).toBe('light')
+  })
+
+  it('filters bill groups while keeping month totals unchanged and opens the selected details', async () => {
+    const { user } = renderApp([
+      debt('owe', { person: '待还对象', initialAmountCents: 12000 }),
+      debt('owed', { person: '待收对象', direction: 'owed', initialAmountCents: 8000 }),
+      debt('settled', { person: '结清对象', initialAmountCents: 5000 }),
+    ], [repayment('settled-repayment', { debtId: 'settled', amountCents: 5000 })])
+
+    await user.click(await screen.findByRole('button', { name: '账单' }))
+    expect(screen.getByRole('heading', { name: '账单' })).toBeTruthy()
+    expect(screen.getByText('按往来查看，逐笔记清')).toBeTruthy()
+    expect(screen.getAllByRole('combobox', { name: '选择月份' })).toHaveLength(1)
+    const summary = document.querySelector('.bills-summary') as HTMLElement
+    expect(summary.textContent).toContain('¥120.00')
+    expect(summary.textContent).toContain('¥80.00')
+    expect(summary.textContent).toContain('共 3 个往来 · 3 笔欠款')
+
+    await user.click(screen.getByRole('button', { name: '待收' }))
+    expect(screen.getByRole('button', { name: /待收对象/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /待还对象/ })).toBeNull()
+    expect(summary.textContent).toContain('¥120.00')
+    expect(summary.textContent).toContain('¥80.00')
+    await user.click(screen.getByRole('button', { name: /待收对象/ }))
+    expect(screen.getByRole('dialog', { name: '待收对象' })).toBeTruthy()
+  })
+
+  it('shows separate empty messages for no records and filters without matches', async () => {
+    mocks.demoEnabled = false
+    mocks.supabaseConfigured = true
+    const authListener = { unsubscribe: vi.fn() }
+    mocks.supabase = { auth: {
+      getSession: async () => ({ data: { session: { user: { id: 'account-1', email: 'account@example.com' } } } }),
+      onAuthStateChange: () => ({ data: { subscription: authListener } }),
+      getUser: async () => ({ data: { user: { id: 'account-1' } }, error: null }),
+      signOut: async () => ({ error: null }),
+    } }
+    const { user } = renderApp([])
+    await user.click(await screen.findByRole('button', { name: '账单' }))
+    expect(screen.getByText('暂无账单记录')).toBeTruthy()
+    expect(screen.queryByText('没有符合条件的往来')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: '总览' }))
+    mocks.ledger.debts = [debt('d1')]
+    cleanup()
+    render(<App />)
+    await screen.findByText('林晓')
+    await user.click(screen.getByRole('button', { name: '账单' }))
+    await user.click(screen.getByRole('button', { name: '待收' }))
+    expect(screen.getByText('没有符合条件的往来')).toBeTruthy()
+  })
+
+  it('disables manual sync without a configured authenticated account', async () => {
+    const { user } = renderApp([debt('d1')])
+    await screen.findByText('林晓')
+    await user.click(screen.getByRole('button', { name: '设置' }))
+    expect(screen.getAllByText('本地演示').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /立即同步/ })).toHaveProperty('disabled', true)
+  })
+
+  it('keeps the sync failure message visible after a failed manual sync', async () => {
+    mocks.supabaseConfigured = true
+    const authListener = { unsubscribe: vi.fn() }
+    mocks.supabase = { auth: {
+      getSession: async () => ({ data: { session: { user: { id: 'account-1', email: 'long.account@example.com' } } } }),
+      onAuthStateChange: () => ({ data: { subscription: authListener } }),
+      getUser: async () => ({ data: { user: { id: 'account-1' } }, error: null }),
+      signOut: async () => ({ error: null }),
+    } }
+    mocks.syncLedger.mockRejectedValue(new Error('network'))
+    const { user } = renderApp([debt('d1')])
+    await user.click(await screen.findByRole('button', { name: '设置' }))
+    await screen.findByText('同步失败，请检查网络后重试。')
+    const syncButton = screen.getByRole('button', { name: /立即同步/ })
+    expect(syncButton).toHaveProperty('disabled', false)
+    await user.click(syncButton)
+    expect(await screen.findByText('同步失败，请检查网络后重试。')).toBeTruthy()
+    expect(document.querySelector('.status-dot')?.className).toContain('error')
+  })
+
+  it('keeps the authenticated account after sign out fails', async () => {
+    mocks.supabaseConfigured = true
+    const authListener = { unsubscribe: vi.fn() }
+    mocks.supabase = { auth: {
+      getSession: async () => ({ data: { session: { user: { id: 'account-1', email: 'long.account@example.com' } } } }),
+      onAuthStateChange: () => ({ data: { subscription: authListener } }),
+      getUser: async () => ({ data: { user: { id: 'account-1' } }, error: null }),
+      signOut: async () => ({ error: new Error('network') }),
+    } }
+    const { user } = renderApp([debt('d1')])
+    await user.click(await screen.findByRole('button', { name: '设置' }))
+    await user.click(screen.getByRole('button', { name: '退出登录' }))
+    expect(await screen.findByText('退出登录失败，请稍后重试。')).toBeTruthy()
+    expect(screen.getByText('long.account@example.com')).toBeTruthy()
+    expect(screen.getByText('已登录')).toBeTruthy()
   })
 
   it('shows the optional interest fields, saves basis points, and can turn interest off while editing', async () => {

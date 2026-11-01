@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDownLeft, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Cloud, CloudOff, CreditCard, Moon, Pencil, Plus, ReceiptText, Settings, Sun, Trash2, Users, X } from 'lucide-react'
+import { ArrowDownLeft, ArrowRight, CalendarDays, Check, ChevronLeft, ChevronRight, Cloud, CloudOff, CreditCard, LogOut, Moon, Pencil, Plus, ReceiptText, RefreshCw, Settings, Sun, Trash2, UserRound, Users, Wallet, X } from 'lucide-react'
 import { readLocalLedger, saveDebtOffline, saveRepaymentOffline, softDeleteOffline } from './db'
 import { formatCents, formatYuan, parseAmountToCents } from './money'
 import { asOfForMonth, calculateDebtBalance, formatAnnualInterestRate, MAX_ANNUAL_INTEREST_RATE_BPS, parseAnnualInterestRateBps, todayLocalDate } from './interest'
@@ -122,6 +122,16 @@ export default function App() {
       if (typeof navigator !== 'undefined' && !navigator.onLine) setSyncMessage('当前离线，修改将暂存本地')
     }
   }
+  async function signOut() {
+    if (!supabase || !user) return
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) { setSyncMessage('退出登录失败，请稍后重试。'); return }
+      setUser(null)
+    } catch {
+      setSyncMessage('退出登录失败，请检查网络后重试。')
+    }
+  }
   async function saveEditor(item: Debt | Repayment) {
     if (item.id.startsWith('demo-')) return
     if ('person' in item) { await saveDebtOffline(item); setDebts((current) => [...current.filter((row) => row.id !== item.id), item]) } else { await saveRepaymentOffline(item); setRepayments((current) => [...current.filter((row) => row.id !== item.id), item]) }
@@ -145,8 +155,10 @@ export default function App() {
   if (!userId) return <LoginGate />
 
   return <div className={`app-shell theme-${theme}`}>
-    <header className="topbar"><div className="brand-lockup"><strong>ClearDues</strong></div><div className="topbar-tools"><label className="month-select"><CalendarDays size={15} /><select aria-label="选择月份" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>{availableMonths.map((value) => <option key={value} value={value}>{monthLabel(value)}</option>)}</select></label><div className="theme-toggle" role="group" aria-label="选择主题"><button className={theme === 'light' ? 'theme-choice selected' : 'theme-choice'} onClick={() => setTheme('light')} aria-label="亮色主题" aria-pressed={theme === 'light'}><Sun size={19} /></button><button className={theme === 'dark' ? 'theme-choice selected' : 'theme-choice'} onClick={() => setTheme('dark')} aria-label="暗色主题" aria-pressed={theme === 'dark'}><Moon size={19} /></button></div></div></header>
-    <main className="page-content">{tab === 'overview' && <Overview groups={groups} debts={monthDebts} stats={stats} month={selectedMonth} repayments={periodRepayments} asOf={selectedAsOf} onEdit={(item) => { setDetailKey(null); setEditor({ kind: 'debt', item }) }} onOpenDetails={setDetailKey} />}{tab === 'bills' && <Bills groups={groups} onOpenDetails={setDetailKey} />}{tab === 'settings' && <SettingsPanel email={user?.email ?? null} syncing={syncing} syncMessage={syncMessage} configured={supabaseConfigured} onSignOut={() => setUser(null)} />}</main>
+    {tab === 'overview' && <header className="topbar"><div className="brand-lockup"><strong>ClearDues</strong></div><div className="topbar-tools"><label className="month-select"><CalendarDays size={15} /><select aria-label="选择月份" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>{availableMonths.map((value) => <option key={value} value={value}>{monthLabel(value)}</option>)}</select></label><div className="theme-toggle" role="group" aria-label="选择主题"><button className={theme === 'light' ? 'theme-choice selected' : 'theme-choice'} onClick={() => setTheme('light')} aria-label="亮色主题" aria-pressed={theme === 'light'}><Sun size={19} /></button><button className={theme === 'dark' ? 'theme-choice selected' : 'theme-choice'} onClick={() => setTheme('dark')} aria-label="暗色主题" aria-pressed={theme === 'dark'}><Moon size={19} /></button></div></div></header>}
+    {tab === 'bills' && <header className="section-topbar bills-topbar"><div><h1>账单</h1><p>按往来查看，逐笔记清</p></div><label className="month-select"><CalendarDays size={16} /><select aria-label="选择月份" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>{availableMonths.map((value) => <option key={value} value={value}>{monthLabel(value)}</option>)}</select></label></header>}
+    {tab === 'settings' && <header className="section-topbar settings-topbar"><h1>设置</h1><div className="settings-brand"><span aria-hidden="true"><Wallet size={14} /></span><strong>ClearDues</strong></div></header>}
+    <main className="page-content">{tab === 'overview' && <Overview groups={groups} debts={monthDebts} stats={stats} month={selectedMonth} repayments={periodRepayments} asOf={selectedAsOf} onEdit={(item) => { setDetailKey(null); setEditor({ kind: 'debt', item }) }} onOpenDetails={setDetailKey} />}{tab === 'bills' && <Bills groups={groups} onOpenDetails={setDetailKey} />}{tab === 'settings' && <SettingsPanel email={user?.email ?? null} authenticated={Boolean(user)} demo={isDemoEnabled && !user} theme={theme} setTheme={setTheme} syncing={syncing} syncMessage={syncMessage} configured={supabaseConfigured} onSyncNow={syncNow} onSignOut={signOut} />}</main>
     <div className="bottom-dock"><div className="bottom-actions"><button className="add-debt-button" onClick={() => openNew('debt')}><Plus size={18} />新增欠款</button></div><nav className="bottom-nav" aria-label="主导航"><button className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}><CreditCard size={19} /><span>总览</span></button><button className={tab === 'bills' ? 'active' : ''} onClick={() => setTab('bills')}><ReceiptText size={19} /><span>账单</span></button><button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}><Settings size={19} /><span>设置</span></button></nav></div>
     {repaymentChoices && <RepaymentChoiceModal group={repaymentChoices} repayments={visibleRepayments} onClose={() => setRepaymentChoices(null)} onChoose={(debt) => { setRepaymentChoices(null); openRepayment(debt) }} />}{editor && <EditorModal editor={editor} userId={userId} debts={visibleDebts} repayments={visibleRepayments} onSave={saveEditor} onDelete={remove} onClose={() => setEditor(null)} />}{detailGroup && <DebtDetailModal group={detailGroup} repayments={periodRepayments} onClose={() => setDetailKey(null)} onEditDebt={(debt) => { setDetailKey(null); setEditor({ kind: 'debt', item: debt }) }} onDeleteDebt={remove} onAddRepayment={openRepaymentGroup} onEditRepayment={(item) => { setDetailKey(null); setEditor({ kind: 'repayment', item }) }} />}
   </div>
@@ -173,7 +185,25 @@ function DebtDetailsCard({ groups, repayments, asOf, onEdit }: { groups: DebtGro
 }
 
 function Bills({ groups, onOpenDetails }: { groups: DebtGroup[]; onOpenDetails: (key: string) => void }) {
-  return <section className="secondary-page compact-record-page">{groups.length ? <div className="account-list">{groups.map((group) => <button className="account-row" key={group.key} onClick={() => onOpenDetails(group.key)}><span className="account-avatar">{group.person.slice(0, 1)}</span><span className="account-info"><strong>{group.person}</strong><small>{group.debts.length} 笔 · {group.direction === 'owe' ? '我欠对方' : '对方欠我'}</small></span><strong className="account-amount">{formatYuan(group.remaining)}</strong><ChevronRight size={17} /></button>)}</div> : <EmptyState title="暂无欠款记录" description="从下方新增欠款开始记录第一笔往来。" />}</section>
+  const [filter, setFilter] = useState<'all' | 'owe' | 'owed' | 'settled'>('all')
+  const debtCount = groups.reduce((sum, group) => sum + group.debts.length, 0)
+  const totalOwe = groups.filter((group) => group.direction === 'owe').reduce((sum, group) => sum + group.remaining, 0)
+  const totalOwed = groups.filter((group) => group.direction === 'owed').reduce((sum, group) => sum + group.remaining, 0)
+  const visibleGroups = groups.filter((group) => filter === 'all' || (filter === 'owe' && group.direction === 'owe' && group.remaining > 0) || (filter === 'owed' && group.direction === 'owed' && group.remaining > 0) || (filter === 'settled' && group.remaining === 0))
+  return <section className="bills-page">
+    <div className="bills-summary"><div className="bills-totals"><div><span>待还总额</span><strong>{formatYuan(totalOwe)}</strong></div><div><span>待收总额</span><strong>{formatYuan(totalOwed)}</strong></div></div><p>共 {groups.length} 个往来 · {debtCount} 笔欠款</p></div>
+    <div className="bills-filters" role="group" aria-label="账单状态筛选">{([['all', '全部'], ['owe', '待还'], ['owed', '待收'], ['settled', '已结清']] as const).map(([value, label]) => <button type="button" key={value} className={filter === value ? 'selected' : ''} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}</div>
+    {visibleGroups.length ? <div className="bills-list">{visibleGroups.map((group) => <BillCard key={group.key} group={group} onOpenDetails={() => onOpenDetails(group.key)} />)}</div> : <EmptyState title={groups.length ? '没有符合条件的往来' : '暂无账单记录'} description={groups.length ? '试试其他状态筛选。' : '从下方新增欠款开始记录第一笔往来。'} />}
+  </section>
+}
+
+function BillCard({ group, onOpenDetails }: { group: DebtGroup; onOpenDetails: () => void }) {
+  const dueDates = group.debts.map((debt) => debt.dueDate).filter(Boolean) as string[]
+  const dueDate = dueDates.length ? `${dueDates.sort()[0].replaceAll('-', '.')} 到期` : '无到期日'
+  return <button type="button" className="bill-card" onClick={onOpenDetails} aria-label={`查看 ${group.person} 详情，${formatYuan(group.remaining)}`}>
+    <span className="bill-icon"><Wallet size={28} /></span><span className="bill-copy"><strong>{group.person}</strong><small>{group.direction === 'owe' ? '我欠对方' : '对方欠我'} · {group.debts.length} 笔欠款</small><small>{dueDate}</small></span><strong className="bill-amount">{formatYuan(group.remaining)} <ChevronRight size={18} aria-hidden="true" /></strong>
+    <span className="bill-progress"><span className="progress-track"><span style={{ width: `${group.progress * 100}%` }} /></span><small>{Math.round(group.progress * 100)}%</small></span>
+  </button>
 }
 
 export function RepaymentChoiceModal({ group, repayments, onClose, onChoose }: { group: DebtGroup; repayments: Repayment[]; onClose: () => void; onChoose: (debt: Debt) => void }) {
@@ -195,9 +225,16 @@ function LoginGate() {
   return <main className="auth-gate"><div className="auth-card"><div className="auth-intro"><div className="auth-brand"><span>ClearDues</span></div><p className="eyebrow">个人欠款账本</p><h1>把每笔往来记清楚</h1><p>记录欠款、还款和到期日，让账目清楚，心里轻松。</p></div>{supabaseConfigured ? <><div className="auth-mode" role="tablist" aria-label="认证方式"><button type="button" role="tab" aria-selected={!isSignup} className={!isSignup ? 'selected' : ''} onClick={() => switchMode('login')}>登录</button><button type="button" role="tab" aria-selected={isSignup} className={isSignup ? 'selected' : ''} onClick={() => switchMode('signup')}>注册</button></div><form className="auth-form" onSubmit={submit}><label htmlFor="auth-email">邮箱地址<input id="auth-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" autoComplete="email" required /></label><label htmlFor="auth-password">密码<input id="auth-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="至少 6 位字符" autoComplete={isSignup ? 'new-password' : 'current-password'} minLength={6} required /></label>{isSignup && <label htmlFor="auth-confirm-password">确认密码<input id="auth-confirm-password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="再次输入密码" autoComplete="new-password" minLength={6} required /></label>}<button className="primary-button full auth-submit" type="submit" disabled={submitting}>{submitting ? '处理中…' : isSignup ? '创建账号' : '登录账本'}</button>{message && <p className={`${message.kind === 'error' ? 'error-message' : 'form-message'} auth-message`} role="status">{message.text}</p>}</form><p className="auth-note">邮箱+密码登录 · 数据仅同步到你的 Supabase 账号</p></> : <div className="notice-card"><CloudOff size={18} /><div><strong>同步尚未配置</strong><p>请复制 .env.example 为 .env.local，填入 Supabase URL 和 Publishable Key。未配置时不会显示或写入账目。</p></div></div>}</div></main>
 }
 
-function SettingsPanel({ email, syncing, syncMessage, configured, onSignOut }: { email: string | null; syncing: boolean; syncMessage: string; configured: boolean; onSignOut: () => void }) {
-  const syncState = syncing ? 'busy' : syncMessage.includes('失败') ? 'error' : syncMessage.includes('离线') ? 'offline' : configured && syncMessage === '已同步' ? 'on' : ''
-  return <section className="secondary-page"><div className="page-heading"><p className="card-kicker">偏好与账户</p><h2>设置</h2><p>管理同步状态和你的使用方式。</p></div><div className="settings-card"><div className="setting-row"><span className="setting-icon"><Cloud size={19} /></span><span><strong>跨设备同步</strong><small>{configured ? syncMessage : '未配置 Supabase'}</small></span><span className={`status-dot ${syncState}`} /></div><div className="setting-row"><span className="setting-icon"><CreditCard size={19} /></span><span><strong>金额单位</strong><small>人民币（元）· 数据按分存储</small></span><span className="muted">CNY</span></div></div><div className="login-card"><h3>已登录</h3><p>{email ?? '当前账号'}</p><button className="outline-button" onClick={() => { void supabase?.auth.signOut(); onSignOut() }}>退出登录</button></div></section>
+function SettingsPanel({ email, authenticated, demo, theme, setTheme, syncing, syncMessage, configured, onSyncNow, onSignOut }: { email: string | null; authenticated: boolean; demo: boolean; theme: Theme; setTheme: (theme: Theme) => void; syncing: boolean; syncMessage: string; configured: boolean; onSyncNow: () => Promise<void>; onSignOut: () => Promise<void> }) {
+  const syncState = syncing ? 'busy' : syncMessage.includes('失败') ? 'error' : syncMessage.includes('离线') ? 'offline' : configured && authenticated && syncMessage === '已同步' ? 'on' : ''
+  const accountStatus = authenticated ? '已登录' : demo ? '本地演示' : '未登录'
+  const syncDisabled = syncing || !configured || !authenticated
+  return <section className="settings-page">
+    <div className="settings-account"><span className="settings-account-icon"><UserRound size={34} /></span><span className="settings-account-copy"><strong>我的账户</strong><small>{email ?? (demo ? '本地演示账户' : '未登录')}</small></span><span className={`account-status${authenticated ? ' authenticated' : ''}`}>{accountStatus}</span></div>
+    <section className="settings-section"><h2>偏好</h2><div className="settings-card preference-card"><div className="setting-row"><span className="setting-icon"><Sun size={20} /></span><span className="setting-label"><strong>外观主题</strong></span><div className="theme-toggle" role="group" aria-label="选择主题"><button className={theme === 'light' ? 'theme-choice selected' : 'theme-choice'} onClick={() => setTheme('light')} aria-label="亮色主题" aria-pressed={theme === 'light'}><Sun size={19} /></button><button className={theme === 'dark' ? 'theme-choice selected' : 'theme-choice'} onClick={() => setTheme('dark')} aria-label="暗色主题" aria-pressed={theme === 'dark'}><Moon size={19} /></button></div></div><div className="setting-row"><span className="setting-icon"><span className="currency-symbol">¥</span></span><span className="setting-label"><strong>金额单位</strong></span><span className="currency-value">人民币 CNY</span></div></div></section>
+    <section className="settings-section"><h2>数据与同步</h2><div className="settings-card sync-card"><div className="sync-status-row"><span className="setting-icon"><Cloud size={20} /></span><span className="sync-copy"><strong>跨设备同步</strong><small>{syncMessage}</small></span><span className={`status-dot ${syncState}`} /></div><button type="button" className="sync-now" disabled={syncDisabled} onClick={() => void onSyncNow()}><RefreshCw size={20} /><span>立即同步</span><ChevronRight size={18} /></button></div></section>
+    <button className="signout-button" type="button" disabled={!authenticated} onClick={() => void onSignOut()}><LogOut size={20} />退出登录</button>
+  </section>
 }
 
 function EditorModal({ editor, userId, debts, repayments, onSave, onDelete, onClose }: { editor: Exclude<Editor, null>; userId: string; debts: Debt[]; repayments: Repayment[]; onSave: (item: Debt | Repayment) => Promise<void>; onDelete: (item: Debt | Repayment) => Promise<void>; onClose: () => void }) {
