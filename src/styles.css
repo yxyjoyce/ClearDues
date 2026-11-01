@@ -150,10 +150,10 @@ button { cursor: pointer; }
 .bill-amount { grid-column: 3; grid-row: 1; }
 .bill-amount-label { color: var(--muted); font-size: 12px; line-height: 1.35; }
 .bill-amount-label { grid-column: 3; grid-row: 2; max-width: 100%; margin-top: 1px; text-align: right; }
-.bill-info-line { display: contents; }
-.bill-interest-summary, .bill-due-date { grid-row: 3; min-width: 0; max-width: 100%; color: var(--muted); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
-.bill-interest-summary { grid-column: 2; text-align: left; }
-.bill-due-date { grid-column: 3; justify-self: end; text-align: right; }
+.bill-info-line { display: grid; grid-column: 2 / -1; grid-row: 3; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 10px; min-width: 0; }
+.bill-interest-summary, .bill-due-date { grid-row: 1; min-width: 0; max-width: 100%; color: var(--muted); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+.bill-interest-summary { grid-column: 1; text-align: left; }
+.bill-due-date { grid-column: 2; justify-self: end; text-align: right; }
 .bill-progress { display: flex; grid-column: 1 / -1; grid-row: 4; align-items: center; gap: 9px; min-width: 0; }
 .bill-progress .progress-track { flex: 1; min-width: 0; height: 7px; margin: 0; }
 .bill-progress .progress-track > span { display: block; height: 100%; border-radius: inherit; background: var(--yellow); }
