@@ -159,16 +159,44 @@ describe('ClearDues mobile interactions', () => {
   it('opens a choice list for multiple overview quick repayments and hides it for settled groups', async () => {
     const { user } = renderApp([
       debt('d1', { notes: '第一笔' }),
-      debt('d2', { notes: '第二笔' }),
+      debt('d2', { notes: '第二笔', initialAmountCents: 22000 }),
     ])
     const card = (await screen.findByText('林晓')).closest('.debt-summary-card') as HTMLElement
     await user.click(within(card).getByRole('button', { name: '去还款' }))
-    expect(screen.getByRole('dialog', { name: '选择未结清欠款' })).toBeTruthy()
+    const choiceDialog = screen.getByRole('dialog', { name: '给林晓还款' })
+    const choices = within(choiceDialog).getAllByRole('radio')
+    expect(choices[0].getAttribute('aria-checked')).toBe('true')
+    expect(choices[1].getAttribute('aria-checked')).toBe('false')
+    choices[0].focus()
+    await user.keyboard('{ArrowDown}')
+    expect(choices[1].getAttribute('aria-checked')).toBe('true')
+    expect(screen.queryByRole('dialog', { name: '记还款' })).toBeNull()
+    await user.click(within(choiceDialog).getByRole('button', { name: /下一步/ }))
+    expect(within(screen.getByRole('dialog', { name: '记还款' })).getByText(/第二笔/)).toBeTruthy()
 
     cleanup()
     renderApp([debt('settled')], [repayment('settled-repayment', { debtId: 'settled', amountCents: 10000 })])
     const settledCard = (await screen.findByText('林晓')).closest('.debt-summary-card') as HTMLElement
     expect(within(settledCard).queryByRole('button', { name: '去还款' })).toBeNull()
+  })
+
+  it('keeps the debt form fields in full-width cards and retains native date inputs', async () => {
+    const { user } = renderApp([debt('d1')])
+    await user.click(await screen.findByRole('button', { name: '新增欠款' }))
+    const dialog = screen.getByRole('dialog', { name: '新增欠款' })
+    expect(within(dialog).getByRole('group', { name: '欠款方向' })).toBeTruthy()
+    expect(dialog.querySelector('.debt-amount-card')).toBeTruthy()
+    expect(dialog.querySelector('.debt-fields-card .debt-field-row input[type="date"]')).toBeTruthy()
+    expect(within(dialog).getByRole('checkbox', { name: '包含利息' })).toBeTruthy()
+    expect(within(dialog).getByRole('textbox', { name: '备注' })).toBeTruthy()
+    expect(dialog.querySelector('.sheet-handle')).toBeTruthy()
+    await user.click(within(dialog).getByRole('button', { name: '无到期日' }))
+    expect(within(dialog).getByLabelText('到期日期')).toBeTruthy()
+    await user.click(within(dialog).getByRole('button', { name: '设为无到期日' }))
+    expect(within(dialog).queryByLabelText('到期日期')).toBeNull()
+    await user.type(within(dialog).getByPlaceholderText('0.00'), '5')
+    await user.click(within(dialog).getByRole('button', { name: '确认新增欠款' }))
+    expect(mocks.saveDebtOffline).toHaveBeenLastCalledWith(expect.objectContaining({ dueDate: null }))
   })
 
   it('returns from detail to its source tab and only shows return for settled groups', async () => {
@@ -310,9 +338,11 @@ describe('ClearDues mobile interactions', () => {
     await user.click(await screen.findByRole('button', { name: '查看详情' }))
     const detailDialog = screen.getByRole('dialog', { name: '林晓' })
     await user.click(within(detailDialog).getByRole('button', { name: '记还款' }))
-    const choiceDialog = screen.getByRole('dialog', { name: '选择未结清欠款' })
-    expect(within(choiceDialog).getByRole('button', { name: /早餐.*¥50\.00/ })).toBeTruthy()
-    await user.click(within(choiceDialog).getByRole('button', { name: /早餐.*¥50\.00/ }))
+    const choiceDialog = screen.getByRole('dialog', { name: '给林晓还款' })
+    const breakfastChoice = within(choiceDialog).getByRole('radio', { name: /早餐.*¥50\.00/ })
+    expect(breakfastChoice.getAttribute('aria-checked')).toBe('true')
+    expect(within(choiceDialog).getByRole('button', { name: /下一步/ })).toBeTruthy()
+    await user.click(within(choiceDialog).getByRole('button', { name: /下一步/ }))
 
     expect(screen.getByRole('dialog', { name: '记还款' })).toBeTruthy()
     expect(within(screen.getByRole('dialog', { name: '记还款' })).getByText('林晓')).toBeTruthy()

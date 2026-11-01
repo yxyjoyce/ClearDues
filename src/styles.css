@@ -135,18 +135,23 @@ button { cursor: pointer; }
 .bills-filters button.selected { color: var(--emphasis); background: var(--yellow); }
 .bills-list { display: grid; gap: 12px; }
 .bill-card { display: grid; grid-template-columns: 52px minmax(0, 1fr) minmax(0, 42%); align-items: start; gap: 9px 12px; width: 100%; min-width: 0; padding: 14px; color: var(--ink); text-align: left; border: 0; border-radius: 14px; background: var(--surface); box-shadow: 0 4px 16px #524c1b0a; }
-.bill-icon { display: grid; place-items: center; width: 52px; height: 52px; grid-row: 1; color: var(--emphasis); border-radius: 14px; background: #fff1b8; }
+.bill-icon { display: grid; place-items: center; width: 52px; height: 52px; grid-column: 1; grid-row: 1 / span 3; color: var(--emphasis); border-radius: 14px; background: #fff1b8; }
 .theme-dark .bill-icon { background: #4a4018; }
-.bill-copy { display: grid; min-width: 0; gap: 4px; }
-.bill-copy strong { min-width: 0; overflow-wrap: anywhere; font-size: 18px; font-weight: 800; line-height: 1.25; }
-.bill-copy small { min-width: 0; color: var(--muted); font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.bill-copy { display: contents; }
+.bill-copy strong, .bill-copy small { min-width: 0; overflow-wrap: anywhere; }
+.bill-copy strong { grid-column: 2; grid-row: 1; font-size: 18px; font-weight: 800; line-height: 1.25; }
+.bill-copy small { grid-column: 2; color: var(--muted); font-size: 13px; line-height: 1.35; }
+.bill-copy small:first-of-type { grid-row: 2; }
+.bill-copy small:last-of-type { grid-row: 3; }
 .bill-amount { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; max-width: 100%; color: var(--ink); text-align: right; overflow-wrap: anywhere; white-space: normal; font-size: clamp(14px, 4.4vw, 19px); line-height: 1.35; font-variant-numeric: tabular-nums; }
 .bill-amount svg { flex: 0 0 auto; color: var(--muted); }
-.bill-amount-wrap { display: grid; justify-items: end; min-width: 0; max-width: 100%; }
+.bill-amount-wrap { display: contents; }
+.bill-amount { grid-column: 3; grid-row: 1; }
 .bill-amount-label, .bill-interest-summary { color: var(--muted); font-size: 12px; line-height: 1.35; }
-.bill-amount-label { margin-top: 1px; }
-.bill-interest-summary { grid-column: 1 / -1; min-width: 0; overflow-wrap: anywhere; }
-.bill-progress { display: flex; grid-column: 1 / -1; align-items: center; gap: 9px; min-width: 0; }
+.bill-amount-label { grid-column: 3; grid-row: 2; max-width: 100%; margin-top: 1px; text-align: right; }
+.bill-interest-summary { max-width: 100%; overflow-wrap: anywhere; text-align: right; }
+.bill-interest-summary { grid-column: 3; grid-row: 3; }
+.bill-progress { display: flex; grid-column: 1 / -1; grid-row: 4; align-items: center; gap: 9px; min-width: 0; }
 .bill-progress .progress-track { flex: 1; min-width: 0; height: 7px; margin: 0; }
 .bill-progress .progress-track > span { display: block; height: 100%; border-radius: inherit; background: var(--yellow); }
 .bill-progress small { min-width: 30px; color: var(--muted); text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -191,15 +196,62 @@ button { cursor: pointer; }
 .sheet-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .sheet-title h2 { margin: 0; overflow-wrap: anywhere; font-size: 18px; letter-spacing: -.04em; }
 .sheet-title button { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; color: var(--muted); border: 0; background: none; }
-.choice-modal { padding-top: 18px; }
+.sheet-handle { width: 40px; height: 5px; margin: 0 auto 12px; border-radius: 999px; background: #c9c9c9; }
+.choice-modal, .editor-modal:has(.debt-editor-form) { padding-top: 10px; }
+.choice-modal { min-height: min(70svh, 640px); }
+.choice-modal .sheet-title, .editor-modal:has(.debt-editor-form) .sheet-title { align-items: flex-start; margin-bottom: 14px; }
+.choice-modal .sheet-title h2, .editor-modal:has(.debt-editor-form) .sheet-title h2 { font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -.04em; }
+.choice-modal .sheet-title p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
 .helper-text { margin: -4px 0 12px; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .editor-modal { padding-bottom: 0; }
 .editor-modal form { gap: 11px; }
+.editor-modal .debt-editor-form { gap: 10px; }
+.debt-direction { margin-bottom: 0; }
+.debt-amount-card, .debt-fields-card, .interest-card, .debt-notes-card { min-width: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.debt-amount-card { gap: 6px; padding: 14px 16px 12px; color: var(--muted); background: color-mix(in srgb, var(--yellow) 13%, var(--surface)); }
+.debt-amount-input { min-height: 52px; }
+.debt-amount-card .input-prefix span { top: 7px; left: 2px; font-size: 30px; font-weight: 800; }
+.debt-amount-card .input-prefix input { min-height: 52px; padding: 0 0 0 34px; color: var(--ink); border: 0; background: transparent; font-size: 34px; font-weight: 800; letter-spacing: -.05em; }
+.debt-amount-card .input-prefix input::placeholder { color: var(--ink); opacity: 1; }
+.debt-fields-card { overflow: hidden; padding: 0 14px; }
+.debt-field-row { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 56px; margin: 0; color: var(--ink); font-size: 14px; font-weight: 500; }
+.debt-field-row + .debt-field-row { border-top: 1px solid var(--line); }
+.debt-field-row > svg { flex: 0 0 20px; color: var(--ink); }
+.debt-field-row > span:nth-child(2) { flex: 0 0 auto; }
+.debt-field-row > input, .debt-field-value { width: auto; min-width: 0; max-width: 100%; flex: 1 1 auto; }
+.debt-field-row > input { margin: 0; padding: 9px 0; color: var(--ink); text-align: right; border: 0; background: transparent; }
+.debt-field-value { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.debt-field-value input, .debt-field-value select { width: 100%; min-width: 0; max-width: 100%; margin: 0; padding: 9px 0; color: var(--ink); text-align: right; border: 0; background: transparent; }
+.editor-modal input[type="date"] { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; appearance: none; -webkit-appearance: none; text-align: right; }
+.editor-modal input[type="date"]::-webkit-date-and-time-value { text-align: right; }
+.person-picker { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.person-picker input, .person-picker select { flex: 1 1 auto; }
+.debt-editor-form .person-picker select { appearance: none; -webkit-appearance: none; }
+.debt-editor-form .person-mode-button { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; }
+.person-picker-chevron { flex: 0 0 auto; color: var(--muted); }
+.due-date-empty { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; padding: 0; color: var(--muted); border: 0; background: transparent; font-size: 14px; }
+.due-date-clear { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; padding: 0; color: var(--muted); border: 0; border-radius: 50%; background: var(--surface-muted); }
+.interest-card { padding: 0 14px 8px; }
+.interest-card-toggle { display: flex; align-items: center; justify-content: space-between; min-height: 54px; margin: 0; color: var(--ink); font-size: 14px; font-weight: 500; }
+.interest-switch { position: relative; display: block; width: 52px; height: 30px; flex: 0 0 auto; }
+.interest-switch input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+.interest-switch > span { position: absolute; inset: 0; border-radius: 999px; background: var(--line); transition: background-color 160ms ease; }
+.interest-switch > span::after { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px #1112; content: ""; transition: transform 160ms ease; }
+.interest-switch input:checked + span { background: var(--yellow); }
+.interest-switch input:checked + span::after { transform: translateX(22px); }
+.interest-switch input:focus-visible + span { outline: 3px solid #f4d62f88; outline-offset: 2px; }
+.interest-rate-row { display: flex; align-items: center; gap: 5px; min-height: 48px; margin: 0; color: var(--ink); border-top: 1px solid var(--line); font-size: 14px; font-weight: 500; }
+.interest-rate-row > input { width: auto; min-width: 0; max-width: 45%; flex: 1 1 auto; margin-left: auto; padding: 8px 0; color: var(--ink); text-align: right; border: 0; background: transparent; }
+.interest-inherited { display: block; padding: 0 0 1px; color: var(--muted); font-size: 12px; }
+.debt-notes-card { padding: 12px 14px; color: var(--muted); }
+.debt-notes-card textarea { min-width: 0; min-height: 44px; margin-top: 2px; border: 0; background: var(--surface-muted); }
+.choice-modal { display: flex; flex-direction: column; }
 .editor-grid-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 9px; }
 .interest-line { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: 9px; }
 .interest-line .interest-toggle { min-height: 44px; }
 .rate-field { min-width: 0; }
 .editor-footer { position: sticky; bottom: 0; display: grid; gap: 7px; margin: 2px -16px 0; padding: 8px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--surface) 94%, transparent); }
+.debt-editor-form .editor-footer .primary-button { min-height: 52px; border-radius: 13px; font-size: 16px; }
 .subtle-delete { min-height: 38px; color: var(--muted); background: transparent; font-size: 13px; font-weight: 700; }
 .repayment-context { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 5px 0 2px; }
 .repayment-context-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 auto; color: var(--emphasis); border-radius: 12px; background: #fff1b8; }
@@ -213,12 +265,22 @@ button { cursor: pointer; }
 .repayment-amount-input input { min-height: 56px; color: var(--ink); background: var(--surface); font-size: 26px; font-weight: 800; letter-spacing: -.04em; }
 .repayment-amount-input span { top: 17px; font-size: 20px; font-weight: 800; }
 .settle-all-button { justify-self: end; min-height: 36px; margin-top: -5px; padding: 7px 10px; color: var(--ink); border: 1px solid var(--line); border-radius: 9px; background: var(--surface-muted); font-size: 12px; font-weight: 700; }
-.choice-list { display: grid; gap: 8px; }
-.choice-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; min-height: 60px; padding: 10px 12px; color: var(--ink); text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-muted); }
-.choice-row > span { display: grid; min-width: 0; flex: 1 1 auto; gap: 3px; }
-.choice-row strong { min-width: 0; max-width: 46%; overflow-wrap: anywhere; font-size: 14px; }
-.choice-row > span strong { max-width: 100%; }
-.choice-row small { min-width: 0; color: var(--muted); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.choice-list { display: grid; flex: 0 1 auto; align-content: start; gap: 8px; min-height: 0; overflow-y: auto; }
+.choice-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto) 36px; align-items: center; gap: 10px; width: 100%; min-width: 0; min-height: 72px; padding: 11px 12px; color: var(--ink); text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.choice-row.selected { border-color: var(--yellow-dark); background: color-mix(in srgb, var(--yellow) 15%, var(--surface)); }
+.choice-row strong { min-width: 0; max-width: 100%; overflow-wrap: anywhere; font-size: 15px; }
+.choice-copy, .choice-balance { display: grid; min-width: 0; gap: 4px; }
+.choice-copy small, .choice-balance small { min-width: 0; color: var(--muted); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+.choice-balance { justify-items: end; text-align: right; }
+.choice-balance strong { text-align: right; font-variant-numeric: tabular-nums; }
+.choice-radio { display: grid; place-items: center; width: 32px; height: 32px; justify-self: end; border: 1.5px solid var(--muted); border-radius: 50%; }
+.choice-row.selected .choice-radio { border-color: var(--emphasis); background: var(--emphasis); }
+.choice-row.selected .choice-radio::after { width: 14px; height: 8px; border-bottom: 2px solid var(--inverse); border-left: 2px solid var(--inverse); transform: translateY(-1px) rotate(-45deg); content: ""; }
+.choice-footer { position: sticky; bottom: calc(-20px - env(safe-area-inset-bottom, 0px)); margin: auto -16px calc(-20px - env(safe-area-inset-bottom, 0px)); padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: color-mix(in srgb, var(--surface) 96%, transparent); }
+.choice-footer p { margin: 0 0 10px; padding-top: 10px; color: var(--muted); border-top: 1px solid var(--line); font-size: 14px; }
+.choice-footer strong { color: var(--ink); }
+.choice-footer .primary-button { min-height: 52px; border-radius: 13px; font-size: 16px; }
+.choice-footer .primary-button:disabled { cursor: not-allowed; opacity: .6; }
 .choice-empty { display: grid; gap: 12px; padding: 10px 0 2px; }
 .choice-empty p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
 
