@@ -106,8 +106,6 @@ button { cursor: pointer; }
 .bottom-nav button { display: flex; min-width: 44px; min-height: 44px; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 1px 4px; color: var(--muted); border: 0; border-radius: 11px; background: none; font-size: 12px; transition: background-color 160ms ease, color 160ms ease; }
 .bottom-nav button.active { color: var(--ink); font-weight: 800; }
 .tab-transition { animation: page-in 200ms ease-out both; }
-.bills-list { animation: filter-in 160ms ease-out both; }
-
 .secondary-page { padding-top: 4px; }
 .page-heading { padding: 12px 0 16px; }
 .page-heading h2 { margin: 4px 0 0; font-size: 20px; letter-spacing: -.04em; }
@@ -130,27 +128,32 @@ button { cursor: pointer; }
 .bills-totals span { color: var(--muted); font-size: 13px; }
 .bills-totals strong { min-width: 0; color: var(--ink); font-size: clamp(17px, 5.4vw, 23px); font-weight: 800; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .bills-summary > p { margin: 13px 0 0; padding-top: 12px; color: var(--muted); border-top: 1px solid var(--line); font-size: 13px; }
-.bills-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
-.bills-filters button { min-width: 0; min-height: 44px; padding: 6px 3px; color: var(--muted); border: 0; border-radius: 14px; background: var(--surface-muted); font-size: 13px; font-weight: 700; }
-.bills-filters button.selected { color: var(--emphasis); background: var(--yellow); }
-.bills-list { display: grid; gap: 12px; }
+.bills-filters { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; padding: 4px; border-radius: 16px; background: var(--surface-muted); }
+.bills-filter-indicator { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 4); border-radius: 12px; background: var(--yellow); transition: transform 220ms ease-out; }
+.bills-filters button { position: relative; z-index: 1; min-width: 0; min-height: 44px; padding: 6px 3px; color: var(--muted); border: 0; border-radius: 12px; background: transparent; font-size: 13px; font-weight: 700; transition: color 120ms ease-out; }
+.bills-filters button.selected { color: var(--emphasis); }
+.bills-list { display: grid; gap: 0; min-width: 0; }
+.bill-list-item { display: grid; grid-template-rows: minmax(0, 1fr); min-width: 0; min-height: 0; padding-bottom: 12px; opacity: 1; transition: grid-template-rows 180ms ease-out, padding-bottom 180ms ease-out, opacity 120ms ease-out; }
+.bill-list-item-inner { min-width: 0; min-height: 0; overflow: hidden; }
+.bill-list-item.is-hidden { grid-template-rows: minmax(0, 0fr); padding-bottom: 0; opacity: 0; pointer-events: none; }
+.bill-list-item.is-visible { grid-template-rows: minmax(0, 1fr); padding-bottom: 12px; opacity: 1; }
 .bill-card { display: grid; grid-template-columns: 52px minmax(0, 1fr) minmax(0, 42%); align-items: start; gap: 9px 12px; width: 100%; min-width: 0; padding: 14px; color: var(--ink); text-align: left; border: 0; border-radius: 14px; background: var(--surface); box-shadow: 0 4px 16px #524c1b0a; }
-.bill-icon { display: grid; place-items: center; width: 52px; height: 52px; grid-column: 1; grid-row: 1 / span 3; color: var(--emphasis); border-radius: 14px; background: #fff1b8; }
+.bill-icon { display: grid; place-items: center; width: 52px; height: 52px; grid-column: 1; grid-row: 1 / span 2; color: var(--emphasis); border-radius: 14px; background: #fff1b8; }
 .theme-dark .bill-icon { background: #4a4018; }
 .bill-copy { display: contents; }
 .bill-copy strong, .bill-copy small { min-width: 0; overflow-wrap: anywhere; }
 .bill-copy strong { grid-column: 2; grid-row: 1; font-size: 18px; font-weight: 800; line-height: 1.25; }
-.bill-copy small { grid-column: 2; color: var(--muted); font-size: 13px; line-height: 1.35; }
-.bill-copy small:first-of-type { grid-row: 2; }
-.bill-copy small:last-of-type { grid-row: 3; }
+.bill-copy small { grid-column: 2; grid-row: 2; color: var(--muted); font-size: 13px; line-height: 1.35; }
 .bill-amount { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; max-width: 100%; color: var(--ink); text-align: right; overflow-wrap: anywhere; white-space: normal; font-size: clamp(14px, 4.4vw, 19px); line-height: 1.35; font-variant-numeric: tabular-nums; }
 .bill-amount svg { flex: 0 0 auto; color: var(--muted); }
 .bill-amount-wrap { display: contents; }
 .bill-amount { grid-column: 3; grid-row: 1; }
 .bill-amount-label, .bill-interest-summary { color: var(--muted); font-size: 12px; line-height: 1.35; }
 .bill-amount-label { grid-column: 3; grid-row: 2; max-width: 100%; margin-top: 1px; text-align: right; }
-.bill-interest-summary { max-width: 100%; overflow-wrap: anywhere; text-align: right; }
-.bill-interest-summary { grid-column: 3; grid-row: 3; }
+.bill-info-line { display: block; grid-column: 1 / -1; grid-row: 3; min-width: 0; color: var(--muted); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+.bill-info-line small { min-width: 0; max-width: 100%; overflow-wrap: anywhere; font-size: inherit; }
+.bill-info-separator { padding: 0 5px; }
+.bill-interest-summary { color: var(--muted); }
 .bill-progress { display: flex; grid-column: 1 / -1; grid-row: 4; align-items: center; gap: 9px; min-width: 0; }
 .bill-progress .progress-track { flex: 1; min-width: 0; height: 7px; margin: 0; }
 .bill-progress .progress-track > span { display: block; height: 100%; border-radius: inherit; background: var(--yellow); }
@@ -417,12 +420,10 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @keyframes detail-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes detail-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(6px); } }
 @keyframes page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@keyframes filter-in { from { opacity: 0; } to { opacity: 1; } }
-
 @media (prefers-reduced-motion: reduce) {
-  .scrim, .scrim .modal-card, .detail-scrim, .tab-transition, .bills-list { animation-duration: 1ms; animation-timing-function: linear; }
+  .scrim, .scrim .modal-card, .detail-scrim, .tab-transition { animation-duration: 1ms; animation-timing-function: linear; }
   .scrim .modal-card, .detail-scrim, .tab-transition { animation-name: scrim-in; }
-  .bottom-nav button { transition-duration: 1ms; }
+  .bottom-nav button, .bills-filter-indicator, .bills-filters button, .bill-list-item { transition: none; }
 }
 
 @media (max-width: 374px) {

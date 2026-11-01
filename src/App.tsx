@@ -200,10 +200,13 @@ function Bills({ groups, onOpenDetails }: { groups: DebtGroup[]; onOpenDetails: 
   const totalOwe = groups.filter((group) => group.direction === 'owe').reduce((sum, group) => sum + group.remaining, 0)
   const totalOwed = groups.filter((group) => group.direction === 'owed').reduce((sum, group) => sum + group.remaining, 0)
   const visibleGroups = groups.filter((group) => filter === 'all' || (filter === 'owe' && group.direction === 'owe' && group.remaining > 0) || (filter === 'owed' && group.direction === 'owed' && group.remaining > 0) || (filter === 'settled' && group.remaining === 0))
+  const visibleGroupKeys = new Set(visibleGroups.map((group) => group.key))
+  const filters = [['all', '全部'], ['owe', '待还'], ['owed', '待收'], ['settled', '已结清']] as const
+  const filterIndex = filters.findIndex(([value]) => value === filter)
   return <section className="bills-page">
     <div className="bills-summary"><div className="bills-totals"><div><span>待还总额</span><strong>{formatYuan(totalOwe)}</strong></div><div><span>待收总额</span><strong>{formatYuan(totalOwed)}</strong></div></div><p>共 {groups.length} 个往来 · {debtCount} 笔欠款</p></div>
-    <div className="bills-filters" role="group" aria-label="账单状态筛选">{([['all', '全部'], ['owe', '待还'], ['owed', '待收'], ['settled', '已结清']] as const).map(([value, label]) => <button type="button" key={value} className={filter === value ? 'selected' : ''} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}</div>
-    {visibleGroups.length ? <div className="bills-list" key={filter}>{visibleGroups.map((group) => <BillCard key={group.key} group={group} onOpenDetails={() => onOpenDetails(group.key)} />)}</div> : <EmptyState title={groups.length ? '没有符合条件的往来' : '暂无账单记录'} description={groups.length ? '试试其他状态筛选。' : '从下方新增欠款开始记录第一笔往来。'} />}
+    <div className="bills-filters" role="group" aria-label="账单状态筛选"><span className="bills-filter-indicator" aria-hidden="true" style={{ transform: `translateX(${filterIndex * 100}%)` }} />{filters.map(([value, label]) => <button type="button" key={value} className={filter === value ? 'selected' : ''} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</button>)}</div>
+    <div className="bills-list">{groups.map((group) => { const visible = visibleGroupKeys.has(group.key); return <div className={`bill-list-item${visible ? ' is-visible' : ' is-hidden'}`} key={group.key} aria-hidden={!visible} inert={!visible}><div className="bill-list-item-inner"><BillCard group={group} onOpenDetails={() => onOpenDetails(group.key)} /></div></div> })}<div className={`bill-list-item${visibleGroups.length ? ' is-hidden' : ' is-visible'}`} key="empty" aria-hidden={Boolean(visibleGroups.length)} inert={Boolean(visibleGroups.length)}><div className="bill-list-item-inner"><EmptyState title={groups.length ? '没有符合条件的往来' : '暂无账单记录'} description={groups.length ? '试试其他状态筛选。' : '从下方新增欠款开始记录第一笔往来。'} /></div></div></div>
   </section>
 }
 
@@ -214,7 +217,7 @@ function BillCard({ group, onOpenDetails }: { group: DebtGroup; onOpenDetails: (
   const interestLabel = group.direction === 'owe' ? '未付利息' : '待收利息'
   const principal = Math.max(0, group.remaining - group.interestRemaining)
   return <button type="button" className="bill-card" onClick={onOpenDetails} aria-label={`查看 ${group.person} 详情，${formatYuan(group.remaining)}`}>
-    <span className="bill-icon"><Wallet size={28} /></span><span className="bill-copy"><strong>{group.person}</strong><small>{group.direction === 'owe' ? '我欠对方' : '对方欠我'} · {group.debts.length} 笔欠款</small><small>{dueDate}</small></span><span className="bill-amount-wrap"><strong className="bill-amount">{formatYuan(group.remaining)} <ChevronRight size={18} aria-hidden="true" /></strong><small className="bill-amount-label">{group.direction === 'owe' ? '剩余应还' : '剩余应收'}</small>{hasInterest && <small className="bill-interest-summary">本金 {formatYuan(principal)} · {interestLabel} {formatYuan(group.interestRemaining)}</small>}</span>
+    <span className="bill-icon"><Wallet size={28} /></span><span className="bill-copy"><strong>{group.person}</strong><small>{group.direction === 'owe' ? '我欠对方' : '对方欠我'} · {group.debts.length} 笔欠款</small></span><span className="bill-amount-wrap"><strong className="bill-amount">{formatYuan(group.remaining)} <ChevronRight size={18} aria-hidden="true" /></strong><small className="bill-amount-label">{group.direction === 'owe' ? '剩余应还' : '剩余应收'}</small></span><span className="bill-info-line"><small className="bill-due-date">{dueDate}</small>{hasInterest && <> <span className="bill-info-separator" aria-hidden="true">·</span> <small className="bill-interest-summary">本金 {formatYuan(principal)} · {interestLabel} {formatYuan(group.interestRemaining)}</small></>}</span>
     <span className="bill-progress"><span className="progress-track"><span style={{ width: `${group.progress * 100}%` }} /></span><small>{Math.round(group.progress * 100)}%</small></span>
   </button>
 }

@@ -491,8 +491,35 @@ describe('ClearDues mobile interactions', () => {
     expect(screen.queryByRole('button', { name: /待还对象/ })).toBeNull()
     expect(summary.textContent).toContain('¥120.00')
     expect(summary.textContent).toContain('¥80.00')
+    await user.click(screen.getByRole('button', { name: '待还' }))
+    await user.click(screen.getByRole('button', { name: '已结清' }))
+    await user.click(screen.getByRole('button', { name: '待收' }))
+    expect(screen.getByRole('button', { name: '待收' }).getAttribute('aria-pressed')).toBe('true')
+    const exitedCard = Array.from(document.querySelectorAll('.bill-list-item[aria-hidden="true"]')).find((item) => item.textContent?.includes('待还对象')) as HTMLElement
+    expect(exitedCard).toBeTruthy()
+    expect(exitedCard.hasAttribute('inert')).toBe(true)
     await user.click(screen.getByRole('button', { name: /待收对象/ }))
     expect(screen.getByRole('dialog', { name: '待收对象' })).toBeTruthy()
+  })
+
+  it('keeps exited bill cards inert and applies the final filter immediately', async () => {
+    const { user } = renderApp([
+      debt('owe', { person: '待还对象' }),
+      debt('owed', { person: '待收对象', direction: 'owed' }),
+    ])
+    await user.click(await screen.findByRole('button', { name: '账单' }))
+    await user.click(screen.getByRole('button', { name: '待收' }))
+    expect(screen.queryByRole('button', { name: /待还对象/ })).toBeNull()
+    expect(screen.getByRole('button', { name: /待收对象/ })).toBeTruthy()
+    const exited = Array.from(document.querySelectorAll('.bill-list-item[aria-hidden="true"]')).find((item) => item.textContent?.includes('待还对象')) as HTMLElement
+    expect(exited.hasAttribute('inert')).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: '全部' }))
+    expect(screen.getByRole('button', { name: /待还对象/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /待收对象/ })).toBeTruthy()
+    const reducedMotionRules = stylesText.split('@media (prefers-reduced-motion: reduce)')[1]
+    expect(reducedMotionRules).toMatch(/\.bill-list-item\s*\{\s*transition:\s*none;/)
+    expect(reducedMotionRules).toContain('.bills-filter-indicator')
   })
 
   it('shows separate empty messages for no records and filters without matches', async () => {
@@ -517,7 +544,12 @@ describe('ClearDues mobile interactions', () => {
     await screen.findByText('林晓')
     await user.click(screen.getByRole('button', { name: '账单' }))
     await user.click(screen.getByRole('button', { name: '待收' }))
-    expect(screen.getByText('没有符合条件的往来')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '没有符合条件的往来' })).toBeTruthy()
+    const emptyItem = screen.getByRole('heading', { name: '没有符合条件的往来' }).closest('.bill-list-item') as HTMLElement
+    expect(emptyItem.getAttribute('aria-hidden')).toBe('false')
+    await user.click(screen.getByRole('button', { name: '全部' }))
+    expect(screen.queryByRole('heading', { name: '没有符合条件的往来' })).toBeNull()
+    expect(screen.getByRole('button', { name: /林晓/ })).toBeTruthy()
   })
 
   it('disables manual sync without a configured authenticated account', async () => {
@@ -732,5 +764,8 @@ describe('ClearDues mobile interactions', () => {
     expect(owingCard).toContain(formatYuan(owingBalance.totalRemainingCents + owingNoInterestDebt.initialAmountCents))
     expect(owingCard).toContain(`本金 ${formatYuan(owingBalance.principalRemainingCents + owingNoInterestDebt.initialAmountCents)} · 未付利息 ${formatYuan(owingBalance.interestRemainingCents)}`)
     expect(cards.find((text) => text.includes('应收方'))).toContain('本金 ¥100.00 · 待收利息 ¥0.00')
+    const owingInfo = Array.from(document.querySelectorAll('.bill-card')).find((card) => card.textContent?.includes('应还方'))?.querySelector('.bill-info-line')
+    expect(owingInfo?.textContent).toContain('无到期日 · 本金')
+    expect(owingInfo?.querySelector('.bill-interest-summary')?.parentElement).toBe(owingInfo)
   })
 })
