@@ -251,6 +251,17 @@ button { cursor: pointer; }
 .debt-notes-card { padding: 12px 14px; color: var(--muted); }
 .debt-notes-card textarea { min-width: 0; min-height: 44px; margin-top: 2px; border: 0; background: var(--surface-muted); }
 .choice-modal { display: flex; flex-direction: column; }
+.choice-modal .sheet-handle, .choice-modal .sheet-title, .choice-direct-entry, .choice-section-heading, .choice-footer { flex-shrink: 0; }
+.choice-direct-entry { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 92px; flex: 0 0 auto; margin: 0 0 18px; padding: 14px 14px; color: var(--ink); text-align: left; border: 1px solid var(--yellow-dark); border-radius: 14px; background: color-mix(in srgb, var(--yellow) 15%, var(--surface)); }
+.choice-direct-entry:disabled { cursor: wait; opacity: .72; }
+.choice-direct-icon { display: grid; place-items: center; width: 52px; height: 52px; color: var(--emphasis); border-radius: 13px; background: var(--yellow); }
+.choice-direct-copy { display: grid; gap: 4px; min-width: 0; }
+.choice-direct-copy strong { font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
+.choice-direct-copy small { color: var(--muted); font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.choice-direct-chevron { flex: 0 0 auto; color: var(--muted); }
+.choice-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; color: var(--ink); }
+.choice-section-heading strong { font-size: 14px; font-weight: 700; }
+.choice-section-heading span { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
 .editor-grid-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 9px; }
 .interest-line { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: 9px; }
 .interest-line .interest-toggle { min-height: 44px; }
@@ -314,7 +325,7 @@ button { cursor: pointer; }
 .choice-footer p { margin: 0 0 10px; padding-top: 10px; color: var(--muted); border-top: 1px solid var(--line); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .choice-footer strong { color: var(--ink); }
 .choice-footer .primary-button { min-height: 52px; border-radius: 13px; font-size: 16px; }
-.choice-footer .primary-button:disabled { cursor: not-allowed; opacity: .6; }
+.choice-footer .primary-button:disabled { cursor: not-allowed; color: var(--muted); background: var(--line); opacity: 1; }
 .choice-empty { display: grid; gap: 12px; padding: 10px 0 2px; }
 .choice-empty p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.55; }
 

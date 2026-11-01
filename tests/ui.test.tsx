@@ -168,8 +168,10 @@ describe('ClearDues mobile interactions', () => {
     await user.click(within(card).getByRole('button', { name: '去还款' }))
     const choiceDialog = screen.getByRole('dialog', { name: '给林晓还款' })
     const choices = within(choiceDialog).getAllByRole('checkbox')
-    expect(choices[0].getAttribute('aria-checked')).toBe('true')
+    expect(choices[0].getAttribute('aria-checked')).toBe('false')
     expect(choices[1].getAttribute('aria-checked')).toBe('false')
+    expect((within(choiceDialog).getByRole('button', { name: /下一步/ }) as HTMLButtonElement).disabled).toBe(true)
+    await user.click(choices[0])
     await user.click(choices[1])
     expect(choices[1].getAttribute('aria-checked')).toBe('true')
     expect(screen.queryByRole('dialog', { name: '记还款' })).toBeNull()
@@ -189,9 +191,9 @@ describe('ClearDues mobile interactions', () => {
     const dialog = screen.getByRole('dialog', { name: '给林晓还款' })
     const first = within(dialog).getByRole('checkbox', { name: /第一笔/ })
     const next = within(dialog).getByRole('button', { name: /下一步/ })
-    expect((next as HTMLButtonElement).disabled).toBe(false)
-    await user.click(first)
     expect((next as HTMLButtonElement).disabled).toBe(true)
+    await user.click(first)
+    expect((next as HTMLButtonElement).disabled).toBe(false)
     const second = within(dialog).getByRole('checkbox', { name: /第二笔/ })
     second.focus()
     await user.keyboard(' ')
@@ -210,6 +212,7 @@ describe('ClearDues mobile interactions', () => {
     await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记还款' }))
     const choice = screen.getByRole('dialog', { name: '给林晓还款' })
     await user.click(within(choice).getByRole('checkbox', { name: /较早一笔/ }))
+    await user.click(within(choice).getByRole('checkbox', { name: /较新一笔/ }))
     await user.click(within(choice).getByRole('button', { name: /下一步/ }))
     const editor = screen.getByRole('dialog', { name: '记还款' })
     const batchContext = editor.querySelector('.repayment-batch-debts') as HTMLElement
@@ -248,6 +251,7 @@ describe('ClearDues mobile interactions', () => {
     await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记还款' }))
     const choice = screen.getByRole('dialog', { name: '给林晓还款' })
     await user.click(within(choice).getByRole('checkbox', { name: /较早一笔/ }))
+    await user.click(within(choice).getByRole('checkbox', { name: /较新一笔/ }))
     await user.click(within(choice).getByRole('button', { name: /下一步/ }))
     const editor = screen.getByRole('dialog', { name: '记还款' })
     await user.clear(within(editor).getByLabelText('还款日期'))
@@ -277,6 +281,7 @@ describe('ClearDues mobile interactions', () => {
     await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记还款' }))
     const choice = screen.getByRole('dialog', { name: '给林晓还款' })
     await user.click(within(choice).getByRole('checkbox', { name: /第二笔/ }))
+    await user.click(within(choice).getByRole('checkbox', { name: /第一笔/ }))
     await user.click(within(choice).getByRole('button', { name: /下一步/ }))
     const editor = screen.getByRole('dialog', { name: '记还款' })
     await user.type(within(editor).getByRole('textbox', { name: '还款金额（元）' }), '120')
@@ -291,6 +296,87 @@ describe('ClearDues mobile interactions', () => {
     expect(retried.every((item) => item.amountCents > 0)).toBe(true)
     expect(retried.reduce((sum, item) => sum + item.amountCents, 0)).toBe(12000)
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '记还款' })).toBeNull())
+  })
+
+  it('direct entry includes all current open debts for this person and direction outside the month filter', async () => {
+    const dayBeforePreviousMonth = new Date(`${dateInPreviousMonth}T12:00:00`)
+    dayBeforePreviousMonth.setDate(dayBeforePreviousMonth.getDate() - 1)
+    const earlierDate = todayLocalDate(dayBeforePreviousMonth)
+    const { user } = renderApp([
+      debt('old-open', { occurredDate: earlierDate, initialAmountCents: 10000, notes: '早期欠款' }),
+      debt('month-open', { occurredDate: currentDate, initialAmountCents: 20000, notes: '本月欠款' }),
+      debt('interest-open', { occurredDate: dateInPreviousMonth, initialAmountCents: 10000, annualInterestRateBps: 500, notes: '有息欠款' }),
+      debt('other-direction', { direction: 'owed', initialAmountCents: 90000, notes: '收款方向' }),
+      debt('other-person', { person: '周然', initialAmountCents: 80000, notes: '其他对象' }),
+    ])
+    vi.mocked(crypto.randomUUID).mockImplementation((() => { let id = 0; return () => `direct-r${++id}` })())
+    await user.selectOptions(await screen.findByRole('combobox', { name: '选择月份' }), currentDate.slice(0, 7))
+    const targetCard = Array.from(document.querySelectorAll('.debt-summary-card')).find((card) => card.querySelector('h2')?.textContent === '林晓' && card.querySelector('.quick-repayment')?.textContent?.includes('还款')) as HTMLElement
+    await user.click(within(targetCard).getByRole('button', { name: '去还款' }))
+    const choice = screen.getByRole('dialog', { name: '给林晓还款' })
+    expect(within(choice).getAllByRole('checkbox')).toHaveLength(1)
+    expect((within(choice).getByRole('button', { name: /下一步/ }) as HTMLButtonElement).disabled).toBe(true)
+    await user.click(within(choice).getByRole('checkbox', { name: /本月欠款/ }))
+    await user.click(within(choice).getByRole('button', { name: /直接输入金额/ }))
+    const editor = screen.getByRole('dialog', { name: '记还款' })
+    expect(within(editor).getByText('林晓')).toBeTruthy()
+    expect(within(editor).getByText('全部未结清欠款 · 3 笔')).toBeTruthy()
+    expect(editor.querySelector('.repayment-batch-debts')).toBeNull()
+    expect((within(editor).getByRole('textbox', { name: '还款金额（元）' }) as HTMLInputElement).value).toBe('')
+    expect(editor.querySelector('.repayment-current-balance')?.textContent).toMatch(/¥400\.\d{2}/)
+    const dateRow = editor.querySelector('.repayment-date-row') as HTMLElement
+    const preview = within(editor).getByRole('region', { name: '还款分配预览' })
+    expect(dateRow.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(preview).getByText('自动分配')).toBeTruthy()
+    const previewText = preview.textContent ?? ''
+    expect(previewText).toContain('早期欠款')
+    expect(previewText).toContain('本月欠款')
+    expect(previewText).toContain('有息欠款')
+    expect(previewText).not.toContain('收款方向')
+    expect(previewText).not.toContain('其他对象')
+    await user.click(within(editor).getByRole('button', { name: '确认还款' }))
+    expect(mocks.saveRepaymentsOffline).not.toHaveBeenCalled()
+    await user.type(within(editor).getByRole('textbox', { name: '还款金额（元）' }), '150')
+    await user.click(within(editor).getByRole('button', { name: '确认还款' }))
+    await waitFor(() => expect(mocks.saveRepaymentsOffline).toHaveBeenCalledOnce())
+    const saved = mocks.saveRepaymentsOffline.mock.calls[0][0] as Repayment[]
+    expect(saved.map((item) => [item.debtId, item.amountCents])).toEqual([['old-open', 10000], ['interest-open', 5000]])
+    expect(saved.some((item) => item.debtId === 'month-open' || item.debtId === 'other-direction' || item.debtId === 'other-person')).toBe(false)
+  })
+
+  it('opens direct entry with no manual selection and does not save before confirmation', async () => {
+    const { user } = renderApp([debt('d1', { notes: '第一笔' }), debt('d2', { notes: '第二笔' })])
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记还款' }))
+    const choice = screen.getByRole('dialog', { name: '给林晓还款' })
+    expect((within(choice).getByRole('button', { name: /下一步/ }) as HTMLButtonElement).disabled).toBe(true)
+    await user.click(within(choice).getByRole('button', { name: /直接输入金额/ }))
+    const editor = screen.getByRole('dialog', { name: '记还款' })
+    expect((within(editor).getByRole('textbox', { name: '还款金额（元）' }) as HTMLInputElement).value).toBe('')
+    expect(mocks.saveRepaymentsOffline).not.toHaveBeenCalled()
+    expect(within(editor).getByRole('button', { name: '确认还款' })).toBeTruthy()
+    await user.click(within(editor).getByRole('button', { name: '确认还款' }))
+    expect(mocks.saveRepaymentsOffline).not.toHaveBeenCalled()
+  })
+
+  it('uses direct entry for incoming collections and applies the amount to the selected direction', async () => {
+    const { user } = renderApp([
+      debt('owed-a', { direction: 'owed', occurredDate: dateInPreviousMonth, initialAmountCents: 10000, notes: '先收' }),
+      debt('owed-b', { direction: 'owed', occurredDate: currentDate, initialAmountCents: 20000, notes: '再收' }),
+    ])
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记收款' }))
+    const choice = screen.getByRole('dialog', { name: '向林晓收款' })
+    await user.click(within(choice).getByRole('button', { name: /直接输入金额/ }))
+    const editor = screen.getByRole('dialog', { name: '记收款' })
+    expect(within(editor).getByText('本次收款')).toBeTruthy()
+    expect(within(editor).getByText('自动分配')).toBeTruthy()
+    expect(within(editor).getByRole('button', { name: /全部收齐/ })).toBeTruthy()
+    await user.type(within(editor).getByRole('textbox', { name: '收款金额（元）' }), '125')
+    await user.click(within(editor).getByRole('button', { name: '确认收款' }))
+    await waitFor(() => expect(mocks.saveRepaymentsOffline).toHaveBeenCalledOnce())
+    const saved = mocks.saveRepaymentsOffline.mock.calls[0][0] as Repayment[]
+    expect(saved.map((item) => [item.debtId, item.amountCents])).toEqual([['owed-a', 10000], ['owed-b', 2500]])
   })
 
   it('keeps the debt form fields in full-width cards and retains native date inputs', async () => {
@@ -453,8 +539,9 @@ describe('ClearDues mobile interactions', () => {
     await user.click(within(detailDialog).getByRole('button', { name: '记还款' }))
     const choiceDialog = screen.getByRole('dialog', { name: '给林晓还款' })
     const breakfastChoice = within(choiceDialog).getByRole('checkbox', { name: /早餐.*¥50\.00/ })
-    expect(breakfastChoice.getAttribute('aria-checked')).toBe('true')
-    expect(within(choiceDialog).getByRole('button', { name: /下一步/ })).toBeTruthy()
+    expect(breakfastChoice.getAttribute('aria-checked')).toBe('false')
+    expect((within(choiceDialog).getByRole('button', { name: /下一步/ }) as HTMLButtonElement).disabled).toBe(true)
+    await user.click(breakfastChoice)
     await user.click(within(choiceDialog).getByRole('button', { name: /下一步/ }))
 
     expect(screen.getByRole('dialog', { name: '记还款' })).toBeTruthy()
