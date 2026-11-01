@@ -1,6 +1,6 @@
 import React from 'react'
 import { readFileSync } from 'node:fs'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { calculateDebtBalance, todayLocalDate } from '../src/interest'
@@ -138,7 +138,7 @@ describe('ClearDues mobile interactions', () => {
     const personInput = screen.getByPlaceholderText('例如：林晓')
     await user.type(personInput, '周然')
     await user.type(screen.getByPlaceholderText('0.00'), '10')
-    await user.click(screen.getByRole('button', { name: '保存记录' }))
+    await user.click(screen.getByRole('button', { name: '确认新增欠款' }))
 
     expect(mocks.saveDebtOffline).toHaveBeenCalledWith(expect.objectContaining({ person: '周然', initialAmountCents: 1000 }))
   })
@@ -206,7 +206,7 @@ describe('ClearDues mobile interactions', () => {
     const amountInput = screen.getByDisplayValue('100.00')
     await user.clear(amountInput)
     await user.type(amountInput, '120')
-    await user.click(screen.getByRole('button', { name: '保存记录' }))
+    await user.click(screen.getByRole('button', { name: '保存欠款' }))
 
     expect(mocks.saveDebtOffline).toHaveBeenCalledWith(expect.objectContaining({ id: 'd1', initialAmountCents: 12000 }))
   })
@@ -225,7 +225,7 @@ describe('ClearDues mobile interactions', () => {
     expect(top.querySelector('.detail-row-date')?.textContent).toBe(currentDate.replaceAll('-', '.'))
     expect(note.querySelector('small')?.getAttribute('title')).toBe(longNote)
     expect(note.getAttribute('aria-expanded')).toBe('false')
-    expect(actions.querySelector('.detail-row-amount')?.textContent).toMatch(/^¥100\.\d{2}$/)
+    expect(row.querySelector('.detail-row-amount')?.textContent).toMatch(/^¥100\.\d{2}$/)
     expect(actions.querySelector('[aria-label="编辑欠款 林晓"]')).toBeTruthy()
     expect(actions.querySelector('[aria-label="删除欠款 林晓"]')).toBeTruthy()
     expect(stylesText).toMatch(/\.detail-row-note small\s*\{[^}]*overflow:\s*hidden[^}]*text-overflow:\s*ellipsis[^}]*white-space:\s*nowrap/)
@@ -284,18 +284,20 @@ describe('ClearDues mobile interactions', () => {
 
     const editorDialog = screen.getByRole('dialog', { name: '编辑记录' })
     expect(within(editorDialog).getByDisplayValue('200.00')).toBeTruthy()
-    expect(within(editorDialog).getByRole('button', { name: '保存记录' })).toBeTruthy()
+    expect(within(editorDialog).getByRole('button', { name: '保存欠款' })).toBeTruthy()
     expect(within(editorDialog).getByRole('button', { name: '删除记录' })).toBeTruthy()
     const amountInput = within(editorDialog).getByDisplayValue('200.00')
     await user.clear(amountInput)
     await user.type(amountInput, '220')
-    await user.click(within(editorDialog).getByRole('button', { name: '保存记录' }))
+    await user.click(within(editorDialog).getByRole('button', { name: '保存欠款' }))
     expect(mocks.saveDebtOffline).toHaveBeenCalledWith(expect.objectContaining({ id: 'd2', initialAmountCents: 22000 }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '编辑记录' })).toBeNull())
 
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    await user.click(within(detailsSection).getByRole('button', { name: `编辑欠款 林晓 ${shortDate(monthStart)} ¥220.00 第二笔` }))
+    const updatedDetailsSection = screen.getByRole('heading', { name: '欠款明细' }).closest('section') as HTMLElement
+    await user.click(within(updatedDetailsSection).getByRole('button', { name: `编辑欠款 林晓 ${shortDate(monthStart)} ¥220.00 第二笔` }))
     await user.click(within(screen.getByRole('dialog', { name: '编辑记录' })).getByRole('button', { name: '删除记录' }))
-    expect(confirmSpy).toHaveBeenCalledOnce()
+    await waitFor(() => expect(confirmSpy).toHaveBeenCalledOnce())
     expect(mocks.softDeleteOffline).toHaveBeenCalledWith('debt', 'd2', expect.any(String))
   })
 
@@ -313,19 +315,19 @@ describe('ClearDues mobile interactions', () => {
     await user.click(within(choiceDialog).getByRole('button', { name: /早餐.*¥50\.00/ }))
 
     expect(screen.getByRole('dialog', { name: '记还款' })).toBeTruthy()
-    expect((screen.getByLabelText('对方') as HTMLInputElement).value).toBe('林晓')
+    expect(within(screen.getByRole('dialog', { name: '记还款' })).getByText('林晓')).toBeTruthy()
     expect((screen.getByPlaceholderText('0.00') as HTMLInputElement).value).toBe('')
-    expect(screen.getByRole('option', { name: /剩余 ¥50\.00/ })).toBeTruthy()
+    expect(within(screen.getByRole('dialog', { name: '记还款' })).getByText(/本金 ¥50\.00/)).toBeTruthy()
 
     const amountInput = screen.getByPlaceholderText('0.00')
     await user.type(amountInput, '60')
-    await user.click(screen.getByRole('button', { name: '保存记录' }))
+    await user.click(screen.getByRole('button', { name: '确认还款' }))
     expect(screen.getByText('还款金额不能超过该笔债务的剩余金额。')).toBeTruthy()
     expect(mocks.saveRepaymentOffline).not.toHaveBeenCalled()
 
     await user.clear(amountInput)
     await user.type(amountInput, '50')
-    await user.click(screen.getByRole('button', { name: '保存记录' }))
+    await user.click(screen.getByRole('button', { name: '确认还款' }))
     expect(mocks.saveRepaymentOffline).toHaveBeenCalledWith(expect.objectContaining({ debtId: 'd1', amountCents: 5000 }))
   })
 
@@ -339,11 +341,11 @@ describe('ClearDues mobile interactions', () => {
     await user.click(within(detailDialog).getByRole('button', { name: /还款.*¥100\.00/ }))
 
     expect(screen.getByRole('heading', { name: '编辑记录' })).toBeTruthy()
-    expect(screen.getByRole('option', { name: /剩余 ¥100\.00/ })).toBeTruthy()
+    expect(within(screen.getByRole('dialog', { name: '编辑记录' })).getByText(/本金 ¥100\.00/)).toBeTruthy()
     const amountInput = screen.getByDisplayValue('100.00')
     await user.clear(amountInput)
     await user.type(amountInput, '80')
-    await user.click(screen.getByRole('button', { name: '保存记录' }))
+    await user.click(screen.getByRole('button', { name: '保存还款' }))
 
     expect(mocks.saveRepaymentOffline).toHaveBeenCalledWith(expect.objectContaining({ id: 'r1', debtId: 'd1', amountCents: 8000 }))
   })
@@ -357,7 +359,7 @@ describe('ClearDues mobile interactions', () => {
     expect(screen.queryByRole('button', { name: /剩余/ })).toBeNull()
     const user = userEvent.setup()
     await user.click(within(screen.getByRole('status')).getByRole('button', { name: '关闭' }))
-    expect(onClose).toHaveBeenCalledOnce()
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce())
   })
 
   it('shows people for multi-person records and the actual repayment percentage', async () => {
@@ -448,7 +450,6 @@ describe('ClearDues mobile interactions', () => {
 
     await user.click(await screen.findByRole('button', { name: '账单' }))
     expect(screen.getByRole('heading', { name: '账单' })).toBeTruthy()
-    expect(screen.getByText('按往来查看，逐笔记清')).toBeTruthy()
     expect(screen.getAllByRole('combobox', { name: '选择月份' })).toHaveLength(1)
     const summary = document.querySelector('.bills-summary') as HTMLElement
     expect(summary.textContent).toContain('¥120.00')
@@ -539,13 +540,12 @@ describe('ClearDues mobile interactions', () => {
     await user.click(await screen.findByRole('button', { name: '新增欠款' }))
     const dialog = screen.getByRole('dialog', { name: '新增欠款' })
     const toggle = within(dialog).getByRole('checkbox', { name: /^包含利息/ })
-    expect(within(dialog).queryByRole('spinbutton', { name: '年利率' })).toBeNull()
-    await user.click(toggle)
+    expect((within(dialog).getByRole('spinbutton', { name: '年利率' }) as HTMLInputElement).value).toBe('3.25')
     const rate = within(dialog).getByRole('spinbutton', { name: '年利率' })
     await user.clear(rate)
     await user.type(rate, '3.25')
     await user.type(within(dialog).getByPlaceholderText('0.00'), '10')
-    await user.click(within(dialog).getByRole('button', { name: '保存记录' }))
+    await user.click(within(dialog).getByRole('button', { name: '确认新增欠款' }))
     expect(mocks.saveDebtOffline).toHaveBeenCalledWith(expect.objectContaining({ annualInterestRateBps: 325 }))
 
     await user.click(await screen.findByRole('button', { name: '查看详情' }))
@@ -555,7 +555,7 @@ describe('ClearDues mobile interactions', () => {
     const editToggle = within(editor).getByRole('checkbox', { name: /^包含利息/ })
     expect((editToggle as HTMLInputElement).checked).toBe(true)
     await user.click(editToggle)
-    await user.click(within(editor).getByRole('button', { name: '保存记录' }))
+    await user.click(within(editor).getByRole('button', { name: '保存欠款' }))
     expect(mocks.saveDebtOffline).toHaveBeenLastCalledWith(expect.objectContaining({ annualInterestRateBps: null }))
   })
 
@@ -577,8 +577,116 @@ describe('ClearDues mobile interactions', () => {
     await user.clear(repaymentDate)
     await user.type(repaymentDate, priorDate)
     await user.type(within(editor).getByPlaceholderText('0.00'), '365.50')
-    await user.click(within(editor).getByRole('button', { name: '保存记录' }))
+    await user.click(within(editor).getByRole('button', { name: '确认还款' }))
     expect(within(editor).getByText('还款金额不能超过该笔债务的剩余金额。')).toBeTruthy()
     expect(mocks.saveRepaymentOffline).not.toHaveBeenCalled()
+  })
+
+  it('fills the historical-date repayment limit when settling all', async () => {
+    const { user } = renderApp(
+      [debt('d1', { occurredDate: dateInPreviousMonth, initialAmountCents: 10000 })],
+      [repayment('future', { debtId: 'd1', amountCents: 5000, date: currentDate })],
+    )
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记还款' }))
+    const editor = screen.getByRole('dialog', { name: '记还款' })
+    const repaymentDate = editor.querySelector('input[type="date"]') as HTMLInputElement
+    await user.clear(repaymentDate)
+    await user.type(repaymentDate, dateInPreviousMonth)
+    await user.click(within(editor).getByRole('button', { name: '全部还清 100.00 元' }))
+    expect((within(editor).getByRole('textbox', { name: '还款金额（元）' }) as HTMLInputElement).value).toBe('100.00')
+    await user.click(within(editor).getByRole('button', { name: '确认还款' }))
+    expect(mocks.saveRepaymentOffline).toHaveBeenCalledWith(expect.objectContaining({ amountCents: 10000, date: dateInPreviousMonth }))
+  })
+
+  it('defaults interest by the selected person, clears it for a new person, and does not overwrite edits', async () => {
+    const { user } = renderApp([
+      debt('a', { person: '甲', annualInterestRateBps: 325, updatedAt: `${currentDate}T00:00:00.000Z` }),
+      debt('b', { person: '乙', annualInterestRateBps: 500, updatedAt: `${currentDate}T00:00:01.000Z` }),
+    ])
+    await user.click(await screen.findByRole('button', { name: '新增欠款' }))
+    const dialog = screen.getByRole('dialog', { name: '新增欠款' })
+    expect((within(dialog).getByRole('spinbutton', { name: '年利率' }) as HTMLInputElement).value).toBe('5')
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: '选择已有欠款人' }), '甲')
+    expect((within(dialog).getByRole('spinbutton', { name: '年利率' }) as HTMLInputElement).value).toBe('3.25')
+    await user.click(within(dialog).getByRole('button', { name: '新增欠款人' }))
+    expect(within(dialog).queryByRole('spinbutton', { name: '年利率' })).toBeNull()
+    await user.click(within(dialog).getByRole('button', { name: '关闭' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '新增欠款' })).toBeNull())
+
+    const selectedCard = Array.from(document.querySelectorAll('.debt-summary-card')).find((card) => card.querySelector('h2')?.textContent === '甲') as HTMLElement
+    await user.click(within(selectedCard).getByRole('button', { name: '查看详情' }))
+    const selectedDetail = screen.getByRole('dialog', { name: '甲' })
+    await user.click(within(selectedDetail).getByRole('button', { name: /编辑欠款 甲/ }))
+    expect((within(screen.getByRole('dialog', { name: '编辑记录' })).getByRole('spinbutton', { name: '年利率' }) as HTMLInputElement).value).toBe('3.25')
+  })
+
+  it('preserves legacy occurrence dates and saves an explicitly changed date', async () => {
+    const legacyDate = dateInPreviousMonth
+    const { user } = renderApp([debt('legacy', { occurredDate: undefined, updatedAt: `${legacyDate}T23:00:00.000Z` })])
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: /编辑欠款/ }))
+    const editor = screen.getByRole('dialog', { name: '编辑记录' })
+    const occurred = editor.querySelector('input[aria-label="发生日期"]') as HTMLInputElement
+    expect(occurred.value).toBe(legacyDate)
+    await user.click(within(editor).getByRole('button', { name: '保存欠款' }))
+    expect(mocks.saveDebtOffline).toHaveBeenLastCalledWith(expect.objectContaining({ occurredDate: legacyDate }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '编辑记录' })).toBeNull())
+    const reopenedCard = document.querySelector('.debt-summary-card') as HTMLElement
+    await user.click(within(reopenedCard).getByRole('button', { name: '查看详情' }))
+    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: /编辑欠款 林晓/ }))
+    const changedEditor = screen.getByRole('dialog', { name: '编辑记录' })
+    const changedOccurred = changedEditor.querySelector('input[aria-label="发生日期"]') as HTMLInputElement
+    await user.clear(changedOccurred)
+    await user.type(changedOccurred, currentDate)
+    await user.click(within(changedEditor).getByRole('button', { name: '保存欠款' }))
+    expect(mocks.saveDebtOffline).toHaveBeenLastCalledWith(expect.objectContaining({ occurredDate: currentDate }))
+  })
+
+  it('keeps the editor open when deletion is cancelled or fails', async () => {
+    const { user } = renderApp([debt('d1')])
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    const detail = screen.getByRole('dialog', { name: '林晓' })
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    await user.click(within(detail).getByRole('button', { name: '删除欠款 林晓' }))
+    expect(screen.getByRole('dialog', { name: '林晓' })).toBeTruthy()
+
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    mocks.softDeleteOffline.mockRejectedValue(new Error('write failed'))
+    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '编辑欠款 林晓' }))
+    const editor = screen.getByRole('dialog', { name: '编辑记录' })
+    await user.click(within(editor).getByRole('button', { name: '删除记录' }))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: '编辑记录' })).toBeTruthy())
+  })
+
+  it('delays normal modal unmount and closes immediately with reduced motion', async () => {
+    const { user } = renderApp([debt('d1')])
+    await user.click(await screen.findByRole('button', { name: '新增欠款' }))
+    const dialog = screen.getByRole('dialog', { name: '新增欠款' })
+    await user.click(within(dialog).getByRole('button', { name: '关闭' }))
+    expect(screen.getByRole('dialog', { name: '新增欠款' })).toBeTruthy()
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '新增欠款' })).toBeNull())
+
+    vi.stubGlobal('matchMedia', () => ({ matches: true, media: '', onchange: null, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined, dispatchEvent: () => false }))
+    await user.click(screen.getByRole('button', { name: '新增欠款' }))
+    await user.click(within(screen.getByRole('dialog', { name: '新增欠款' })).getByRole('button', { name: '关闭' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '新增欠款' })).toBeNull())
+  })
+
+  it('shows zero interest summaries for owing and owed interest-enabled bill cards', async () => {
+    const owingInterestDebt = debt('owe-interest', { person: '应还方', occurredDate: dateInPreviousMonth, annualInterestRateBps: 500 })
+    const owingNoInterestDebt = debt('owe-no-interest', { person: '应还方', initialAmountCents: 20000 })
+    const { user } = renderApp([
+      owingInterestDebt,
+      owingNoInterestDebt,
+      debt('owed-interest', { person: '应收方', direction: 'owed', annualInterestRateBps: 500 }),
+    ])
+    await user.click(await screen.findByRole('button', { name: '账单' }))
+    const cards = Array.from(document.querySelectorAll('.bill-card')).map((card) => card.textContent ?? '')
+    const owingBalance = calculateDebtBalance(owingInterestDebt, [], currentDate)
+    const owingCard = cards.find((text) => text.includes('应还方')) ?? ''
+    expect(owingCard).toContain(formatYuan(owingBalance.totalRemainingCents + owingNoInterestDebt.initialAmountCents))
+    expect(owingCard).toContain(`本金 ${formatYuan(owingBalance.principalRemainingCents + owingNoInterestDebt.initialAmountCents)} · 未付利息 ${formatYuan(owingBalance.interestRemainingCents)}`)
+    expect(cards.find((text) => text.includes('应收方'))).toContain('本金 ¥100.00 · 待收利息 ¥0.00')
   })
 })
