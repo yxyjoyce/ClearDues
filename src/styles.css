@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --page: #fff;
+  --page: #f7f6f1;
   --surface: #fff;
   --surface-muted: #faf9f1;
   --ink: #111;
@@ -44,12 +44,11 @@ button { cursor: pointer; }
 .page-content { padding: 0 16px; }
 .overview-page { display: grid; gap: 14px; padding-top: 4px; }
 .card-kicker { margin: 0; color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-.summary-card { display: flex; align-items: center; gap: 14px; min-height: 104px; padding: 16px; border-radius: 18px; background: var(--surface); box-shadow: 0 8px 22px #524c1b12; }
-.summary-icon { display: grid; place-items: center; width: 46px; height: 46px; flex: 0 0 auto; color: var(--emphasis); border-radius: 14px; background: #f4d62f55; }
-.summary-icon svg { width: 26px; height: 26px; }
+.summary-card { min-height: 132px; padding: 18px; border-radius: 14px; background: var(--surface); box-shadow: 0 4px 16px #524c1b0a; }
 .summary-copy { min-width: 0; }
-.summary-copy strong { display: block; margin-top: 4px; overflow-wrap: anywhere; font-size: 30px; line-height: 1; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
-.summary-copy span { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+.summary-copy strong { display: block; margin-top: 10px; overflow-wrap: anywhere; font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+.summary-copy span { display: block; margin-top: 11px; color: var(--muted); font-size: 14px; }
+.summary-copy span i { font-style: normal; }
 .collection-note { display: flex; align-items: center; gap: 7px; margin: -2px 2px 0; color: var(--muted); font-size: 13px; }
 .collection-note strong { color: var(--ink); }
 .section-heading { display: flex; align-items: end; justify-content: space-between; margin: 2px 2px 0; }
@@ -58,29 +57,23 @@ button { cursor: pointer; }
 .muted { color: var(--muted); font-size: 12px; }
 .contacts-heading { display: flex; align-items: center; gap: 8px; margin: 2px 2px 0; }
 .contacts-heading h2 { margin: 0; font-size: 20px; font-weight: 800; line-height: 1.3; }
-.contacts-count { padding: 4px 8px; color: #111; border-radius: 8px; background: #fff4bd; font-size: 13px; font-weight: 700; }
+.contacts-count { padding: 4px 10px; color: #111; border-radius: 999px; background: #fff1a8; font-size: 13px; font-weight: 700; }
 
-.group-list { display: grid; gap: 14px; }
-.debt-summary-card { min-width: 0; padding: 16px; color: var(--inverse); border-radius: 18px; background: var(--emphasis); box-shadow: 0 11px 28px #11111124; }
-.debt-summary-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; min-width: 0; }
-.debt-summary-card h2 { min-width: 0; max-width: 100%; flex: 1 1 auto; margin: 0; overflow-wrap: anywhere; font-size: 20px; font-weight: 800; line-height: 1.2; letter-spacing: -.04em; }
-.due-label { max-width: 48%; flex: 0 1 auto; padding: 5px 8px; color: var(--inverse); text-align: right; border: 1px solid var(--inverse); border-radius: 999px; font-size: 12px; line-height: 1.2; overflow-wrap: anywhere; }
-.debt-balance-row { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
-.debt-balance-row > div { min-width: 0; flex: 1 1 150px; }
-.balance-label { display: block; color: #aaa9a1; font-size: 13px; }
-.debt-balance-row strong { display: block; max-width: 100%; margin-top: 3px; overflow-wrap: anywhere; color: var(--inverse); font-size: 30px; line-height: 1; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+.group-list { display: grid; gap: 10px; }
+.debt-summary-card { min-width: 0; padding: 12px 14px; color: var(--ink); border-radius: 14px; background: var(--surface); box-shadow: 0 4px 16px #524c1b0a; }
+.debt-summary-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.debt-summary-card h2 { min-width: 0; max-width: 100%; flex: 1 1 auto; margin: 0; overflow-wrap: anywhere; font-size: 20px; font-weight: 800; line-height: 1.25; letter-spacing: -.04em; }
+.group-balance { min-width: 0; max-width: 58%; color: var(--ink); text-align: right; overflow-wrap: anywhere; font-size: 20px; font-weight: 800; line-height: 1.25; font-variant-numeric: tabular-nums; }
+.debt-summary-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 5px; color: var(--muted); font-size: 13px; }
+.debt-summary-meta span:last-child { text-align: right; }
 .interest-hint { display: block; margin-top: 5px; color: #aaa9a1; font-size: 12px; line-height: 1.4; }
-.repay-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 1 auto; gap: 5px; min-height: 44px; max-width: 100%; padding: 9px 12px; color: var(--emphasis); text-align: center; border: 0; border-radius: 11px; background: var(--yellow); font-size: 14px; font-weight: 800; white-space: normal; overflow-wrap: anywhere; }
-.repay-button:hover, .add-debt-button:hover { background: var(--yellow-dark); }
-.debt-progress { min-width: 0; margin-top: 18px; padding: 12px; border-radius: 14px; background: var(--inverse); }
-.progress-meta { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 8px; color: var(--emphasis); font-size: 13px; font-variant-numeric: tabular-nums; }
-.progress-meta span { min-width: 0; overflow-wrap: anywhere; }
-.progress-meta span:last-child { text-align: right; white-space: normal; }
+.add-debt-button:hover { background: var(--yellow-dark); }
 .progress-track { height: 7px; margin-top: 8px; overflow: hidden; background: #e9e8de; border-radius: 99px; }
 .progress-track div { height: 100%; background: var(--yellow); border-radius: inherit; }
-.progress-label { display: block; margin-top: 7px; color: var(--emphasis); font-size: 13px; text-align: left; font-variant-numeric: tabular-nums; }
-.progress-label strong { font-weight: 700; }
-.detail-link { display: flex; align-items: center; justify-content: center; gap: 2px; width: 100%; min-height: 44px; margin-top: 8px; padding: 0; color: var(--inverse); border: 0; background: none; font-size: 14px; font-weight: 700; }
+.compact-progress { display: flex; align-items: center; gap: 10px; min-width: 0; margin-top: 8px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.compact-progress .progress-track { flex: 1; height: 7px; margin-top: 0; }
+.debt-summary-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.detail-link { display: inline-flex; align-items: center; justify-content: center; gap: 1px; min-width: 44px; min-height: 40px; margin: 0 -6px 0 0; padding: 0 4px; color: var(--ink); border: 0; background: none; font-size: 13px; font-weight: 700; }
 
 .details-card, .settings-card, .login-card, .notice-card, .empty-state { border-radius: 18px; background: var(--surface); box-shadow: 0 8px 22px #524c1b0e; }
 .details-card { padding: 16px; }
@@ -156,21 +149,29 @@ input:focus, textarea:focus, select:focus { border-color: var(--yellow-dark); bo
 .interest-toggle input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--yellow-dark); }
 .interest-toggle small { color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.5; }
 
-.detail-modal { color: var(--ink); }
-.detail-modal .sheet-title { align-items: start; }
-.detail-modal .sheet-title h2 { margin-top: 3px; font-size: 24px; font-weight: 800; line-height: 1.25; }
-.detail-balance { min-width: 0; padding: 16px; color: var(--inverse); border-radius: 16px; background: var(--emphasis); }
-.detail-balance > span:first-child { color: #aaa9a1; font-size: 13px; }
-.detail-balance strong { display: block; margin-top: 5px; overflow-wrap: anywhere; font-size: 30px; line-height: 1.1; letter-spacing: -.05em; }
-.detail-balance .interest-hint { color: #aaa9a1; }
-.detail-balance .progress-track { background: #3c3c39; }
-.detail-balance .progress-track div { background: var(--yellow); }
-.detail-progress-label { display: block; margin-top: 7px; color: #aaa9a1; font-size: 12px; }
-.detail-records { margin-top: 18px; }
-.detail-section-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
-.detail-section-title h3 { min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: 16px; }
-.detail-section-title button { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 4px; color: var(--ink); border: 0; background: none; font-size: 13px; font-weight: 700; }
+.detail-scrim { position: fixed; inset: 0; z-index: 10; background: var(--page); }
+.detail-modal { display: flex; flex-direction: column; width: min(100%, 760px); height: 100svh; max-height: 100svh; margin: 0 auto; overflow: hidden; color: var(--ink); background: var(--page); }
+.detail-header { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: 8px; min-height: calc(64px + env(safe-area-inset-top, 0px)); padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px; }
+.detail-header > button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; color: var(--ink); border: 0; background: transparent; }
+.detail-header > div { min-width: 0; text-align: center; }
+.detail-header h2 { margin: 0; overflow-wrap: anywhere; font-size: 24px; font-weight: 800; line-height: 1.2; }
+.detail-header span { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; }
+.detail-modal-content { display: grid; align-content: start; gap: 18px; min-height: 0; flex: 1; overflow-y: auto; padding: 8px 16px 16px; }
+.detail-balance { min-width: 0; padding: 16px; color: var(--ink); border-radius: 14px; background: var(--surface); box-shadow: 0 4px 16px #524c1b0a; }
+.detail-balance-label { color: var(--muted); font-size: 13px; }
+.detail-balance .detail-balance-total { display: block; margin-top: 6px; overflow-wrap: anywhere; font-size: 32px; font-weight: 800; line-height: 1.1; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+.detail-breakdown { display: grid; grid-template-columns: 1fr 1fr; margin-top: 16px; }
+.detail-breakdown > div { display: grid; gap: 3px; min-width: 0; }
+.detail-breakdown > div + div { padding-left: 16px; border-left: 1px solid var(--line); }
+.detail-breakdown span { color: var(--muted); font-size: 13px; }
+.detail-breakdown strong { min-width: 0; overflow-wrap: anywhere; font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.detail-progress-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+.detail-progress-row .progress-track { flex: 1; margin-top: 0; }
+.detail-section { min-width: 0; }
+.detail-section > h3 { margin: 0 0 8px; font-size: 18px; font-weight: 800; }
+.detail-record-card, .repayment-card { min-width: 0; padding: 6px 14px; border-radius: 14px; background: var(--surface); box-shadow: 0 4px 16px #524c1b0a; }
 .detail-debt-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(94px, 52%); align-items: center; gap: 8px; min-width: 0; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.detail-debt-row:last-child { border-bottom: 0; }
 .detail-row-copy { display: grid; align-content: center; min-width: 0; gap: 2px; padding: 0; color: inherit; text-align: left; border: 0; background: transparent; font: inherit; cursor: pointer; }
 .detail-row-copy > strong { min-width: 0; color: var(--ink); font-weight: 700; line-height: 1.3; white-space: nowrap; }
 .detail-row-copy small { display: block; min-width: 0; overflow: hidden; color: var(--muted); font-size: 12px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
@@ -178,12 +179,17 @@ input:focus, textarea:focus, select:focus { border-color: var(--yellow-dark); bo
 .detail-row-copy[aria-expanded="true"] + .detail-row-actions { align-self: start; }
 .detail-row-actions { display: flex; align-items: center; justify-content: flex-end; min-width: 0; gap: 3px; }
 .detail-row-actions .row-action { flex: 0 0 44px; }
+.detail-modal .row-action { color: var(--muted); border: 0; background: transparent; }
 .detail-row-amount { min-width: 0; max-width: 86px; flex: 1 1 auto; color: var(--ink); text-align: right; overflow-wrap: anywhere; font-size: 14px; font-variant-numeric: tabular-nums; }
 .repayment-row { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 30%) auto; align-items: center; gap: 9px; width: 100%; min-width: 0; min-height: 52px; padding: 8px 0; color: var(--ink); text-align: left; border: 0; border-bottom: 1px solid var(--line); background: none; }
 .repayment-row span:first-child { min-width: 0; color: var(--muted); font-size: 12px; }
 .repayment-row span:nth-child(2) { min-width: 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.4; }
 .repayment-row strong { min-width: 0; max-width: 100%; text-align: right; overflow-wrap: anywhere; font-size: 14px; font-variant-numeric: tabular-nums; }
-.detail-empty { margin: 0; padding: 9px 0; color: var(--muted); font-size: 13px; }
+.repayment-section { margin-bottom: 2px; }
+.repayment-row:last-child { border-bottom: 0; }
+.detail-empty { margin: 0; padding: 20px 0; color: var(--muted); font-size: 14px; text-align: center; }
+.detail-footer { flex: 0 0 auto; padding: 8px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--page); }
+.detail-repayment-cta { display: flex; align-items: center; justify-content: center; gap: 8px; width: min(100%, 720px); min-height: 52px; margin: 0 auto; color: var(--emphasis); border: 0; border-radius: 13px; background: var(--yellow); font-size: 17px; font-weight: 800; }
 
 .empty-state { padding: 32px 16px; text-align: center; }
 .empty-icon { display: grid; place-items: center; width: 42px; height: 42px; margin: 0 auto 12px; color: var(--emphasis); border-radius: 13px; background: var(--yellow); }

@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { todayLocalDate } from '../src/interest'
+import { calculateDebtBalance, todayLocalDate } from '../src/interest'
+import { formatYuan } from '../src/money'
 import type { Debt, Repayment } from '../src/types'
 
 const stylesText = readFileSync('src/styles.css', 'utf8')
@@ -87,6 +88,21 @@ describe('ClearDues mobile interactions', () => {
 
     await screen.findByText('全部待还')
     expect(document.querySelector('.summary-card strong')?.textContent).toBe('¥100.00')
+  })
+
+  it('shows only owing principal and interest in the overview summary', async () => {
+    const owing = debt('owe', { initialAmountCents: 10000, occurredDate: dateInPreviousMonth, annualInterestRateBps: 10000 })
+    const owed = debt('owed', { direction: 'owed', initialAmountCents: 30000, occurredDate: dateInPreviousMonth, annualInterestRateBps: 10000 })
+    renderApp([owing, owed])
+
+    await screen.findByText('全部待还')
+    const balance = calculateDebtBalance(owing, [], currentDate)
+    const summary = document.querySelector('.summary-card') as HTMLElement
+    expect(summary.querySelector('strong')?.textContent).toBe(formatYuan(balance.totalRemainingCents))
+    expect(summary.querySelector('span')?.textContent).toContain(`本金 ${formatYuan(balance.principalRemainingCents)} · 利息 ${formatYuan(balance.interestRemainingCents)}`)
+    expect(summary.querySelector('span')?.textContent).toContain('1 笔欠款')
+    expect(summary.querySelector('span')?.textContent).not.toContain('¥300.00')
+    expect(summary.querySelector('.summary-icon')).toBeNull()
   })
 
   it('shows only the selected month after switching away from all debts', async () => {
@@ -231,7 +247,9 @@ describe('ClearDues mobile interactions', () => {
       debt('d2', { initialAmountCents: 20000, notes: '酒店' }),
     ], [repayment('r1', { debtId: 'd1', amountCents: 5000 })])
 
-    await user.click(await screen.findByRole('button', { name: '去还款' }))
+    await user.click(await screen.findByRole('button', { name: '查看详情' }))
+    const detailDialog = screen.getByRole('dialog', { name: '林晓' })
+    await user.click(within(detailDialog).getByRole('button', { name: '记还款' }))
     const choiceDialog = screen.getByRole('dialog', { name: '选择未结清欠款' })
     expect(within(choiceDialog).getByRole('button', { name: /早餐.*¥50\.00/ })).toBeTruthy()
     await user.click(within(choiceDialog).getByRole('button', { name: /早餐.*¥50\.00/ }))
@@ -308,23 +326,21 @@ describe('ClearDues mobile interactions', () => {
     const summaryCard = Array.from(document.querySelectorAll('.debt-summary-card')).find((card) => card.querySelector('h2')?.textContent === '林晓') as HTMLElement
     expect(summaryCard).toBeTruthy()
     expect(summaryCard.querySelector('.dark-kicker')).toBeNull()
-    expect(summaryCard.querySelector('.due-label')).toBeTruthy()
-    const progress = summaryCard.querySelector('.debt-progress') as HTMLElement
-    const progressMeta = progress.querySelectorAll('.progress-meta > span')
-    expect(progressMeta[0]?.textContent).toBe('已还 ¥25.00')
-    expect(progressMeta[1]?.textContent).toBe('总额 ¥100.00')
-    expect(progress.querySelector('.progress-meta')?.textContent).not.toContain('%')
-    expect(progress.querySelector('.progress-label')?.textContent).toBe('还款进度 25%')
-    expect(progress.querySelector('.progress-label strong')?.textContent).toBe('25%')
-    expect(progress.querySelector('.progress-track div')?.getAttribute('style')).toContain('25%')
+    expect(summaryCard.querySelector('.debt-summary-meta')?.textContent).toContain('无到期日')
+    expect(summaryCard.querySelector('.group-balance')?.textContent).toBe('¥75.00')
+    expect(summaryCard.querySelector('.debt-summary-footer')?.textContent).toContain('已还 ¥25.00')
+    expect(summaryCard.querySelector('.compact-progress > span')?.textContent).toBe('25%')
+    expect(summaryCard.querySelector('.compact-progress .progress-track div')?.getAttribute('style')).toContain('25%')
+    expect(within(summaryCard).queryByRole('button', { name: /去还款|去收款/ })).toBeNull()
   })
 
   it('keeps the reference card typography, progress alignment, and row text colors explicit', () => {
     expect(stylesText).toMatch(/\.debt-summary-card h2\s*\{[^}]*font-weight:\s*800/)
     expect(stylesText).toMatch(/\.details-card h2\s*\{[^}]*font-weight:\s*700/)
-    expect(stylesText).toMatch(/\.progress-label\s*\{[^}]*color:\s*var\(--emphasis\)[^}]*font-size:\s*13px[^}]*text-align:\s*left/)
-    expect(stylesText).toMatch(/\.progress-label strong\s*\{[^}]*font-weight:\s*700/)
     expect(stylesText).toMatch(/\.record-date\s*\{[^}]*color:\s*var\(--ink\)[^}]*font-size:\s*14px/)
+    expect(stylesText).toMatch(/--page:\s*#f7f6f1/)
+    expect(stylesText).toMatch(/\.detail-modal\s*\{[^}]*height:\s*100svh[^}]*max-height:\s*100svh/)
+    expect(stylesText).toMatch(/\.detail-modal \.row-action\s*\{[^}]*border:\s*0/)
   })
 
   it('requires confirmation before deleting a debt and closes the detail after confirmation', async () => {
@@ -396,7 +412,8 @@ describe('ClearDues mobile interactions', () => {
     const { user } = renderApp([debt('d1', { occurredDate: priorDate, initialAmountCents: 36500, annualInterestRateBps: 10000 })])
     expect(await screen.findByText(/年利率 100%/)).toBeTruthy()
     expect(screen.getAllByText(/利息/).length).toBeGreaterThan(0)
-    await user.click(screen.getByRole('button', { name: '去还款' }))
+    await user.click(screen.getByRole('button', { name: '查看详情' }))
+    await user.click(within(screen.getByRole('dialog', { name: '林晓' })).getByRole('button', { name: '记还款' }))
     const editor = screen.getByRole('dialog', { name: '记还款' })
     const repaymentDate = editor.querySelector('input[type="date"]') as HTMLInputElement
     await user.clear(repaymentDate)
