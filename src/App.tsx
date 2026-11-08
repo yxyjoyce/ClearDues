@@ -76,6 +76,7 @@ export default function App() {
   const [syncing, setSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState(supabaseConfigured ? '等待同步' : isDemoEnabled ? '本地演示' : '未配置同步')
   const [user, setUser] = useState<AuthUser | null>(null)
+  const [authReady, setAuthReady] = useState(!supabase)
   const userId = user?.id ?? (isDemoEnabled ? 'demo' : null)
 
   useEffect(() => {
@@ -89,11 +90,34 @@ export default function App() {
     try { const local = await readLocalLedger(userId); if (local.debts.length || !isDemoEnabled) setDebts(local.debts); if (local.repayments.length || !isDemoEnabled) setRepayments(local.repayments) } catch { setSyncMessage('本地缓存暂不可用') }
   }
   useEffect(() => {
-    void refresh()
-    if (!supabase) return
-    void supabase.auth.getSession().then(({ data }) => setUser(data.session ? { id: data.session.user.id, email: data.session.user.email ?? null } : null))
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setUser(session ? { id: session.user.id, email: session.user.email ?? null } : null))
-    return () => listener.subscription.unsubscribe()
+    if (!supabase) { setAuthReady(true); return }
+    let active = true
+    let authEventObserved = false
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      authEventObserved = true
+      setUser(session ? { id: session.user.id, email: session.user.email ?? null } : null)
+      setAuthReady(true)
+    })
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!active) return
+      if (!authEventObserved) setUser(data.session ? { id: data.session.user.id, email: data.session.user.email ?? null } : null)
+      setAuthReady(true)
+    }).catch(() => {
+      if (!active) return
+      if (!authEventObserved) setUser(null)
+      setAuthReady(true)
+    })
+    return () => { active = false; listener.subscription.unsubscribe() }
+  }, [])
+  useEffect(() => {
+    if (!userId) return
+    let active = true
+    void readLocalLedger(userId).then((local) => {
+      if (!active) return
+      if (local.debts.length || !isDemoEnabled) setDebts(local.debts)
+      if (local.repayments.length || !isDemoEnabled) setRepayments(local.repayments)
+    }).catch(() => { if (active) setSyncMessage('本地缓存暂不可用') })
+    return () => { active = false }
   }, [userId])
   useEffect(() => { if (supabase && user) void syncNow() }, [user])
   useEffect(() => {
@@ -175,6 +199,7 @@ export default function App() {
     if (openDebts.length === 1 && currentOpenDebts.length <= 1) openRepayment(openDebts[0]); else setRepaymentChoices(group)
   }
   function openDetails(key: string, origin: DetailOrigin) { setDetailOrigin(origin); setDetailKey(key) }
+  if (supabase && !authReady) return <main className="auth-gate" aria-busy="true"><div className="auth-card" role="status">正在恢复登录状态…</div></main>
   if (!userId) return <LoginGate />
 
   return <div className={`app-shell theme-${theme}`}>

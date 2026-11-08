@@ -1,6 +1,6 @@
 import React from 'react'
 import { readFileSync } from 'node:fs'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { calculateDebtBalance, todayLocalDate } from '../src/interest'
@@ -78,6 +78,74 @@ afterEach(() => {
 })
 
 describe('ClearDues mobile interactions', () => {
+  it('waits for a persisted session before choosing the login screen', async () => {
+    mocks.demoEnabled = false
+    mocks.supabaseConfigured = true
+    let resolveSession!: (result: { data: { session: { user: { id: string; email: string } } } }) => void
+    const session = new Promise<{ data: { session: { user: { id: string; email: string } } } }>((resolve) => { resolveSession = resolve })
+    mocks.supabase = { auth: {
+      getSession: () => session,
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }),
+      getUser: async () => ({ data: { user: { id: 'account-1' } }, error: null }),
+      signOut: async () => ({ error: null }),
+    } }
+    renderApp([])
+
+    expect(screen.queryByRole('textbox', { name: '邮箱地址' })).toBeNull()
+    expect(screen.getByRole('status').textContent).toBe('正在恢复登录状态…')
+    await act(async () => { resolveSession({ data: { session: { user: { id: 'account-1', email: 'account@example.com' } } } }) })
+    expect(await screen.findByRole('button', { name: '新增欠款' })).toBeTruthy()
+  })
+
+  it('shows the login form when session restoration finds no session', async () => {
+    mocks.demoEnabled = false
+    mocks.supabaseConfigured = true
+    mocks.supabase = { auth: {
+      getSession: async () => ({ data: { session: null } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }),
+      getUser: async () => ({ data: { user: null }, error: null }),
+      signOut: async () => ({ error: null }),
+    } }
+    renderApp([])
+
+    expect(await screen.findByRole('textbox', { name: '邮箱地址' })).toBeTruthy()
+  })
+
+  it('falls back to the login form when session restoration rejects', async () => {
+    mocks.demoEnabled = false
+    mocks.supabaseConfigured = true
+    mocks.supabase = { auth: {
+      getSession: async () => { throw new Error('network') },
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: vi.fn() } } }),
+      getUser: async () => ({ data: { user: null }, error: null }),
+      signOut: async () => ({ error: null }),
+    } }
+    renderApp([])
+
+    expect(await screen.findByRole('textbox', { name: '邮箱地址' })).toBeTruthy()
+  })
+
+  it('keeps a sign-out event newer than a pending session lookup', async () => {
+    mocks.demoEnabled = false
+    mocks.supabaseConfigured = true
+    let resolveSession!: (result: { data: { session: { user: { id: string; email: string } } } }) => void
+    let authCallback!: (_event: string, session: { user: { id: string; email: string } } | null) => void
+    const pendingSession = new Promise<{ data: { session: { user: { id: string; email: string } } } }>((resolve) => { resolveSession = resolve })
+    mocks.supabase = { auth: {
+      getSession: () => pendingSession,
+      onAuthStateChange: (callback) => { authCallback = callback as typeof authCallback; return { data: { subscription: { unsubscribe: vi.fn() } } } },
+      getUser: async () => ({ data: { user: null }, error: null }),
+      signOut: async () => ({ error: null }),
+    } }
+    renderApp([])
+
+    await act(async () => { authCallback('SIGNED_OUT', null) })
+    expect(await screen.findByRole('textbox', { name: '邮箱地址' })).toBeTruthy()
+    await act(async () => { resolveSession({ data: { session: { user: { id: 'account-1', email: 'account@example.com' } } } }) })
+    expect(screen.getByRole('textbox', { name: '邮箱地址' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '新增欠款' })).toBeNull()
+  })
+
   it('defaults to all debts and includes historical records', async () => {
     renderApp([
       debt('history', { person: '历史欠款', occurredDate: dateInPreviousMonth, notes: '历史记录' }),
@@ -88,7 +156,7 @@ describe('ClearDues mobile interactions', () => {
     expect((monthSelect as HTMLSelectElement).value).toBe('all')
     expect(screen.getByRole('option', { name: '全部欠款' })).toBeTruthy()
     expect(screen.getByText('全部待还')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /历史欠款.*历史记录/ })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: /历史欠款.*历史记录/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: /本月欠款.*本月记录/ })).toBeTruthy()
   })
 
